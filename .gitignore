@@ -3,3 +3,6 @@
 .agents
 data/combined_data_1.txt
 data/*.parquet
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
