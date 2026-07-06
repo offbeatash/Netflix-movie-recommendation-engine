@@ -1,7 +1,12 @@
 pandas
 numpy
+gradio
+implicit
 matplotlib
-seaborn
+numpy
+pandas
+pyarrow
+python-dotenv
 requests
 scikit-learn
 scikit-surprise
