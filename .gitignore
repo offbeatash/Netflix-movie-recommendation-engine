@@ -6,8 +6,4 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-data/combined_data_1.txt
-data/netflix_final_dataset.parquet
-data/movie_titles.csv
-data/movie_with_genres.csv
-data/ratings.parquet
+data/
