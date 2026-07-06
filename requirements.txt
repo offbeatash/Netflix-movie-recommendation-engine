@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 pandas
 numpy
 matplotlib
@@ -11,18 +10,4 @@ gradio
 python-dotenv
 pyarrow
 fastparquet
-=======
-pandas
-numpy
-matplotlib
-seaborn
-requests
-scikit-learn
-scikit-surprise
-implicit
-gradio
-python-dotenv
-pyarrow
-fastparquet
->>>>>>> 873d0815a51c44633b7fd568e46fe108a097d339
 tqdm
