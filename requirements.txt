@@ -1,0 +1,13 @@
+pandas
+numpy
+matplotlib
+seaborn
+requests
+scikit-learn
+scikit-surprise
+implicit
+gradio
+python-dotenv
+pyarrow
+fastparquet
+tqdm
