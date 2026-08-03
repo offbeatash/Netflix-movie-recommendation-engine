@@ -20,7 +20,7 @@ The engine evaluates recommendations using explicit rating tracking metrics: **R
 ### Performance Metrics Table
 | Model | Test RMSE | Test MAE | Computational Strategy |
 |---|---|---|---|
-| **Model D — Hybrid Ensemble** | **0.9812** | **0.7710** | **Linear Weight Blend Optimization (ALS + SVD)** |
+| **Model D — Hybrid Ensemble** | **0.9821** | **0.7710** | **Linear Weight Blend Optimization (ALS + SVD)** |
 | Model C — Tuned SVD | 0.9927 | 0.7814 | Latent-Factor Explicit Matrix Factorization |
 | Model A — Popularity Heuristic | 1.0300 | 0.7514 | Non-personalized Volume Ranking Baseline |
 | Naive Mean Baseline | 1.0879 | 0.9213 | Global Average Rating Imputation (~3.52 Stars) |
