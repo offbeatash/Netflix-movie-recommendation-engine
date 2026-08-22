@@ -2,7 +2,7 @@
 
 An end-to-end, high-performance recommendation pipeline trained on 18M+ ratings from the Netflix Prize dataset. This engine features customized data loading configurations, hyperparameter optimization via `GridSearchCV`, an engineered Blended Hybrid Ensemble, and an interactive frontend interface deployed via Gradio.
 
----
+----
 
 ## 🚀 Key Architectural Features & Engineering Highlights
 
