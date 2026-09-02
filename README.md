@@ -49,7 +49,7 @@ Using parallel worker processing (`GridSearchCV`), we constrained cross-validati
 * **Recommendation Backends:** `scikit-surprise` (SVD), `implicit` (ALS)
 * **Performance Tracking & UI:** `scikit-learn`, `psutil`, `gradio`
 
----
+----
 
 ## 🏃‍♂️ How to Setup and Run Local Server
 
