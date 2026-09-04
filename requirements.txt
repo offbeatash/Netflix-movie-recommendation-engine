@@ -5,7 +5,7 @@ implicit
 matplotlib
 numpy
 pandas
-pyarrow
+pyarrow==24.0.0
 python-dotenv
 requests
 scikit-learn
