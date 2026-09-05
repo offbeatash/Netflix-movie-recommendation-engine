@@ -1,14 +1,26 @@
+# Environment
 .env
-.venv
-.agents
-
+.venv/
+.agents/
+.gradio
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Jupyter
 .ipynb_checkpoints/
 
-data/
+# Data
+/data/*
 *.parquet
-models/
-data/
-artifacts/*
-!artifacts/.gitkeep
+!/data/.gitkeep
+
+# Generated artifacts
+/artifacts/*
+!/artifacts/.gitkeep
+
+# Trained models
+/models/
+
+# Notebook-generated models
+/notebooks/models/

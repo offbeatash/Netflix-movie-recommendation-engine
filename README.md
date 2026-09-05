@@ -35,11 +35,11 @@ In our evaluation showdown, **Model B (ALS)** yields a disproportionately high e
 ---
 
 ## 🛠️ Hyperparameter Fine-Tuning
-Using parallel worker processing (`GridSearchCV`), we constrained cross-validation structures to find the mathematically optimal hyperparameter bounds for explicit item convergence:
-* `n_factors`: 50
-* `n_epochs`: 20
+Using parallel worker processing (GridSearchCV), I performed five stages of targeted cross-validation to progressively refine the SVD hyperparameter search space. The final search achieved the best CV RMSE of 0.9647, with the selected configuration:
+* `n_factors`: 10
+* `n_epochs`: 30
 * `lr_all` (Learning Rate): 0.005
-* `reg_all` (Regularization Penalty): 0.04
+* `reg_all` (Regularization Penalty): 0.08
 
 ---
 
