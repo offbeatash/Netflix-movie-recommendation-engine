@@ -1,0 +1,107 @@
+import json
+import pandas as pd
+import numpy as np
+import gc
+from sklearn.metrics import mean_absolute_error
+from src.config import TEST_DATA_PATH, ENSEMBLE_MODEL_PATH
+from src.models.popularity import get_or_train_popularity
+from src.models.als_model import get_or_train_als
+from src.models.svd_model import get_or_train_svd
+
+def evaluate_models():
+    """Generates predictions for all models on the test set and calculates RMSE/MAE."""
+    print(f"Loading test data from {TEST_DATA_PATH}...")
+    test_df = pd.read_parquet(
+        TEST_DATA_PATH, 
+        columns=["CustomerID", "Movie_ID", "user_idx", "movie_idx", "Rating"]
+    )
+    actual_ratings = test_df["Rating"].values
+
+    print("Loading trained artifacts...")
+    popularity_artifact = get_or_train_popularity()
+    global_mean = popularity_artifact["global_mean"]
+    movie_avgs = popularity_artifact["movie_avgs"]
+    
+    als_model = get_or_train_als()
+    svd_model = get_or_train_svd()
+    
+    with open(ENSEMBLE_MODEL_PATH, "r") as f:
+        ensemble_weights = json.load(f)
+    best_alpha = ensemble_weights["best_alpha"]
+
+    print("Generating predictions...")
+    
+    # 1. Naive Baseline
+    pred_naive = np.full(len(test_df), global_mean)
+    
+    # 2. Model A (Popularity)
+    pred_pop = test_df["Movie_ID"].map(movie_avgs).fillna(global_mean).values
+    
+    # 3. Model B (ALS)
+    u_factors = als_model.user_factors[test_df["user_idx"].values]
+    m_factors = als_model.item_factors[test_df["movie_idx"].values]
+    pred_als = np.clip(np.sum(u_factors * m_factors, axis=1), 1, 5)
+    
+    del als_model, u_factors, m_factors
+    gc.collect()
+
+    # 4. Model C (SVD)
+    pred_svd = np.empty(len(test_df), dtype=np.float32)
+    for start in range(0, len(test_df), 50_000):
+        end = min(start + 50_000, len(test_df))
+        chunk = test_df.iloc[start:end]
+        testset = list(zip(chunk["CustomerID"].astype(str), chunk["Movie_ID"].astype(str), chunk["Rating"]))
+        predictions = svd_model.test(testset)
+        pred_svd[start:end] = [p.est for p in predictions]
+        
+    del svd_model
+    gc.collect()
+
+    # 5. Model D (Ensemble)
+    pred_ensemble = np.clip(best_alpha * pred_als + (1.0 - best_alpha) * pred_svd, 1.0, 5.0)
+
+    # Metrics Calculation
+    # Metrics Calculation
+    def calc_metrics(pred):
+        rmse = np.sqrt(((actual_ratings - pred) ** 2).mean())
+        mae = mean_absolute_error(actual_ratings, pred)
+        return float(rmse), float(mae)
+
+    results = pd.DataFrame({
+        "Model": [
+            "Naive Baseline", 
+            "Model A (Popularity)", 
+            "Model B (ALS)", 
+            "Model C (SVD)", 
+            "Model D (Ensemble)"
+        ],
+        "RMSE": [
+            calc_metrics(pred_naive)[0], 
+            calc_metrics(pred_pop)[0], 
+            calc_metrics(pred_als)[0], 
+            calc_metrics(pred_svd)[0], 
+            calc_metrics(pred_ensemble)[0]
+        ],
+        "MAE": [
+            calc_metrics(pred_naive)[1], 
+            calc_metrics(pred_pop)[1], 
+            calc_metrics(pred_als)[1], 
+            calc_metrics(pred_svd)[1], 
+            calc_metrics(pred_ensemble)[1]
+        ]
+    })
+
+    # The Cute Table Output
+    print("\n" + "="*50)
+    print("✨ THE EVALUATION SHOWDOWN ✨".center(50))
+    print("="*50)
+    print(f"| {'Model':<22} | {'RMSE':^8} | {'MAE':^8} |")
+    print("-" * 50)
+    
+    for _, row in results.iterrows():
+        print(f"| {row['Model']:<22} | {row['RMSE']:^8.4f} | {row['MAE']:^8.4f} |")
+        
+    print("="*50 + "\n")
+    print("Note: The extreme error in the ALS model demonstrates the Implicit vs. Explicit Feedback Trap.")
+    
+    return results
