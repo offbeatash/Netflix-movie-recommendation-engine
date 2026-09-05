@@ -2,7 +2,7 @@
 .env
 .venv/
 .agents/
-.gradio
+
 # Python
 __pycache__/
 *.py[cod]
@@ -24,3 +24,4 @@ __pycache__/
 
 # Notebook-generated models
 /notebooks/models/
+/.gradio/

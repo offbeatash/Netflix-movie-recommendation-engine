@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
+
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
 # Dynamically resolve the absolute path to the root of your workspace

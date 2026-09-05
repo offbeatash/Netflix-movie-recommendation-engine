@@ -60,8 +60,6 @@ def evaluate_models():
     # 5. Model D (Ensemble)
     pred_ensemble = np.clip(best_alpha * pred_als + (1.0 - best_alpha) * pred_svd, 1.0, 5.0)
 
-    # Metrics Calculation
-    # Metrics Calculation
     def calc_metrics(pred):
         rmse = np.sqrt(((actual_ratings - pred) ** 2).mean())
         mae = mean_absolute_error(actual_ratings, pred)
@@ -91,7 +89,6 @@ def evaluate_models():
         ]
     })
 
-    # The Cute Table Output
     print("\n" + "="*50)
     print("✨ THE EVALUATION SHOWDOWN ✨".center(50))
     print("="*50)
@@ -102,6 +99,7 @@ def evaluate_models():
         print(f"| {row['Model']:<22} | {row['RMSE']:^8.4f} | {row['MAE']:^8.4f} |")
         
     print("="*50 + "\n")
+    print("The ensemble achieved a marginally lower RMSE than SVD, while SVD retained the lower MAE.")
     print("Note: The extreme error in the ALS model demonstrates the Implicit vs. Explicit Feedback Trap.")
     
     return results

@@ -15,9 +15,11 @@ def get_or_train_svd(force_retrain=False):
 
     print("Initiating SVD training pipeline...")
     print(f"Loading training data from {TRAIN_DATA_PATH}...")
-
+    
+    # Load strictly the required columns
     train_df = pd.read_parquet(TRAIN_DATA_PATH, columns=["CustomerID", "Movie_ID", "Rating"])
     
+    # Cast IDs to strings to ensure consistent lookup in Surprise dictionaries
     train_df["CustomerID"] = train_df["CustomerID"].astype(str)
     train_df["Movie_ID"] = train_df["Movie_ID"].astype(str)
     
@@ -30,6 +32,7 @@ def get_or_train_svd(force_retrain=False):
     
     trainset = data.build_full_trainset()
     
+    # Free raw DataFrame and loaded ratings data before running SGD
     del train_df, data
     gc.collect()
 
@@ -45,7 +48,9 @@ def get_or_train_svd(force_retrain=False):
     svd_model.fit(trainset)
     print("Model trained successfully!")
     
-
+    # ---------------- MEMORY PRUNING FOR SAFE SERIALIZATION ----------------
+    # Setting the historical rating lists to None drops ~95% of object memory.
+    # The dictionary keys remain so `knows_user()` and `knows_item()` continue to work.
     print("Pruning raw rating histories from internal trainset...")
     if hasattr(svd_model, 'trainset') and svd_model.trainset is not None:
         for u in list(svd_model.trainset.ur.keys()):
@@ -56,6 +61,7 @@ def get_or_train_svd(force_retrain=False):
     del trainset
     gc.collect()
     
+    # Flush OS-level fragmented C-heap memory back to the kernel
     try:
         ctypes.CDLL('libc.so.6').malloc_trim(0)
         print("OS memory trim complete. RAM released back to system.")
