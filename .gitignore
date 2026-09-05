@@ -9,5 +9,6 @@ __pycache__/
 data/
 *.parquet
 models/
-artifacts/
 data/
+artifacts/*
+!artifacts/.gitkeep
