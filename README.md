@@ -20,11 +20,11 @@ The engine evaluates recommendations using explicit rating tracking metrics: **R
 ### Performance Metrics Table
 | Model | Test RMSE | Test MAE | Computational Strategy |
 |---|---|---|---|
-| **Model D — Hybrid Ensemble** | **0.9941** | **0.7888** | **Linear Weight Blend Optimization (ALS + SVD)** |
-| Model C — Tuned SVD | 0.9945 | 0.7868 | Latent-Factor Explicit Matrix Factorization |
-| Model A — Popularity Heuristic | 1.0371 | 0.8379 | Non-personalized Volume Ranking Baseline (Train-isolated) |
 | Naive Mean Baseline | 1.0841 | 0.9183 | Global Average Rating Imputation |
+| Model A — Popularity Heuristic | 1.0371 | 0.8379 | Non-personalized Volume Ranking Baseline (Train-isolated) |
 | Model B — ALS (Implicit) | 2.8969 | 2.6889 | Alternating Least Squares via `implicit` |
+| Model C — Tuned SVD | 0.9945 | 0.7868 | Latent-Factor Explicit Matrix Factorization |
+| **Model D — Hybrid Ensemble** | **0.9941** | **0.7888** | **Linear Weight Blend Optimization (ALS + SVD)** |
 
 ### 💡 Key Data Science Insight: The Implicit Feedback Trap
 In our evaluation showdown, **Model B (ALS)** yields a disproportionately high error score (2.8969). This is a deliberate demonstration of algorithm selection criteria:
@@ -36,10 +36,10 @@ In our evaluation showdown, **Model B (ALS)** yields a disproportionately high e
 
 ## 🛠️ Hyperparameter Fine-Tuning
 Using parallel worker processing (GridSearchCV), I performed five stages of targeted cross-validation to progressively refine the SVD hyperparameter search space. The final search achieved the best CV RMSE of 0.9647, with the selected configuration:
-* `n_factors`: 10
-* `n_epochs`: 30
+* `n_factors`: 50
+* `n_epochs`: 20
 * `lr_all` (Learning Rate): 0.005
-* `reg_all` (Regularization Penalty): 0.08
+* `reg_all` (Regularization Penalty): 0.04
 
 ---
 
@@ -54,19 +54,44 @@ Using parallel worker processing (GridSearchCV), I performed five stages of targ
 ## 🏃‍♂️ How to Setup and Run the Pipeline
 
 ```bash
-# 1. Clone the Repository
+
+###(Min 4-core, 16gb ram machine recommended, or can simply run this project in github codespcae)
+ 
+### 1. Clone the Repository
 git clone [https://github.com/offbeatash/Netflix-movie-recommendation-engine.git](https://github.com/offbeatash/Netflix-movie-recommendation-engine.git)
 cd Netflix-movie-recommendation-engine
 
-# 2. Install Dependencies
-pip install -r requirements.txt
-# (or manually: pip install pandas numpy scipy scikit-surprise implicit scikit-learn gradio pyarrow)
+2. Environment & API Setup
+Install the required dependencies and configure your TMDb API key (required for the movie genre enrichment script):
 
-# 3. Run the Complete Data & Training Pipeline via Makefile
+pip install -r requirements.txt
+
+# Duplicate the example environment file
+cp .env.example .env
+Open the newly created .env file in your editor and replace your_tmdb_api_key_here with your actual API key.
+
+TMDB : https://developer.themoviedb.org/reference/authentication
+
+3. Download the Raw Dataset
+Due to GitHub's file size limitations, the massive raw Netflix Prize dataset is hosted externally.
+
+Download the raw data archive from:
+https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing
+
+Extract the contents and move/upload them into the project's data/ directory.
+
+
+4. Execute the ML Pipeline
+
+With the data in place and the API key configured, use the Makefile to run the end-to-end architecture:
+
+Bash
+# 1. Run data ingestion, enrichment, splitting, and model training
 make all
 
-# 4. Run the Evaluation Showdown to verify metrics
+# 2. Verify the evaluation metrics on the test split
 make evaluate
 
-# 5. Launch the Interactive Gradio Web Server
+# 3. Launch the interactive Gradio Web Server
 make serve
+Note for VS Code / GitHub Codespaces users: The application automatically handles connection port-forwarding. Once executed via make serve, check your editor’s Ports tab to view your active local hosting address.
