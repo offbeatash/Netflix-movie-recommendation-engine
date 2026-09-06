@@ -49,49 +49,101 @@ Using parallel worker processing (GridSearchCV), I performed five stages of targ
 * **Recommendation Backends:** `scikit-surprise` (SVD), `implicit` (ALS)
 * **Performance Tracking & UI:** `scikit-learn`, `ctypes`, `gradio`
 
----
+-------------------------------------------------------------------------------------------------------------
 
 ## 🏃‍♂️ How to Setup and Run the Pipeline
 
-```bash
+## Setup & Usage
 
-###(Min 4-core, 16gb ram machine recommended, or can simply run this project in github codespcae)
- 
+> **Recommended:** A machine with at least **4 CPU cores and 16 GB RAM** is recommended. Alternatively, you can run this project directly using **GitHub Codespaces**.
+
 ### 1. Clone the Repository
-git clone [https://github.com/offbeatash/Netflix-movie-recommendation-engine.git](https://github.com/offbeatash/Netflix-movie-recommendation-engine.git)
+
+Clone the repository and navigate into the project directory:
+
+```bash
+git clone https://github.com/offbeatash/Netflix-movie-recommendation-engine.git
 cd Netflix-movie-recommendation-engine
+```
 
-2. Environment & API Setup
-Install the required dependencies and configure your TMDb API key (required for the movie genre enrichment script):
+### 2. Environment & API Setup
 
+Install the required Python dependencies:
+
+```bash
 pip install -r requirements.txt
+```
 
-# Duplicate the example environment file
+Duplicate the example environment file:
+
+```bash
 cp .env.example .env
-Open the newly created .env file in your editor and replace your_tmdb_api_key_here with your actual API key.
+```
 
-TMDB : https://developer.themoviedb.org/reference/authentication
+Open the newly created `.env` file in your editor and replace:
 
-3. Download the Raw Dataset
-Due to GitHub's file size limitations, the massive raw Netflix Prize dataset is hosted externally.
+```text
+your_tmdb_api_key_here
+```
 
-Download the raw data archive from:
-https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing
+with your actual **TMDb API key**.
 
-Extract the contents and move/upload them into the project's data/ directory.
+For instructions on obtaining and authenticating your TMDb API key, see the official documentation:
 
+**TMDb:** [Authentication Documentation](https://developer.themoviedb.org/reference/authentication)
 
-4. Execute the ML Pipeline
+### 3. Download the Raw Dataset
 
-With the data in place and the API key configured, use the Makefile to run the end-to-end architecture:
+Due to GitHub's file size limitations, the massive raw **Netflix Prize dataset** is hosted externally.
 
-Bash
-# 1. Run data ingestion, enrichment, splitting, and model training
+Download the raw dataset archive from:
+
+**[📥 Download Raw Netflix Dataset — Google Drive](https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing)**
+
+After downloading, extract the contents and move or upload them into the project's `data/` directory.
+
+Your project structure should look approximately like:
+
+```text
+Netflix-movie-recommendation-engine/
+├── data/
+│   └── <Netflix dataset files>
+├── src/
+├── .env
+├── .env.example
+├── Makefile
+├── requirements.txt
+└── README.md
+```
+
+### 4. Execute the ML Pipeline
+
+Once the dataset is in place and your TMDb API key has been configured, use the `Makefile` to run the end-to-end machine learning pipeline.
+
+#### Run the complete pipeline
+
+This performs data ingestion, enrichment, data splitting, and model training:
+
+```bash
 make all
+```
 
-# 2. Verify the evaluation metrics on the test split
+#### Evaluate the trained model
+
+Verify the evaluation metrics on the test split:
+
+```bash
 make evaluate
+```
 
-# 3. Launch the interactive Gradio Web Server
-make serve
+#### Launch the Interactive Web Server
+
+Launch the interactive **Gradio Web Server**:
+
+```bash
+make app
+```
+
+The application will start locally and provide a URL that you can open in your browser.
+e
 Note for VS Code / GitHub Codespaces users: The application automatically handles connection port-forwarding. Once executed via make serve, check your editor’s Ports tab to view your active local hosting address.
