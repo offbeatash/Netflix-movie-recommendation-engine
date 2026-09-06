@@ -11,6 +11,11 @@ from src.config import (
 )
 
 def create_splits():
+    # IDEMPOTENCY CHECK: Skip if splits already exist
+    if TRAIN_DATA_PATH.exists() and VAL_DATA_PATH.exists() and TEST_DATA_PATH.exists():
+        print("Train, validation, and test splits already exist. Skipping feature engineering phase.")
+        return
+
     print(f"Loading processed ratings from {PROCESSED_DATA_PATH}...")
     df = pd.read_parquet(PROCESSED_DATA_PATH)
     
