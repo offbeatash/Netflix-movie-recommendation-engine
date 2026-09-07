@@ -1,0 +1,15 @@
+artifact_uri: /workspaces/Netflix-movie-recommendation-engine/mlruns/935851887600786965/d3664d4385b44f2eacae1ea29969f9d4/artifacts
+end_time: 1788795440746
+entry_point_name: ''
+experiment_id: '935851887600786965'
+lifecycle_stage: active
+run_id: d3664d4385b44f2eacae1ea29969f9d4
+run_name: upbeat-vole-831
+run_uuid: d3664d4385b44f2eacae1ea29969f9d4
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1788795440739
+status: 3
+tags: []
+user_id: codespace

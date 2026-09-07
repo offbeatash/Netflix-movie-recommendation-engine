@@ -1,0 +1,15 @@
+artifact_uri: /workspaces/Netflix-movie-recommendation-engine/mlruns/935851887600786965/f6631fcd803443569b42658f7c5ba9ae/artifacts
+end_time: 1788795425786
+entry_point_name: ''
+experiment_id: '935851887600786965'
+lifecycle_stage: active
+run_id: f6631fcd803443569b42658f7c5ba9ae
+run_name: serious-kite-935
+run_uuid: f6631fcd803443569b42658f7c5ba9ae
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1788795425777
+status: 3
+tags: []
+user_id: codespace

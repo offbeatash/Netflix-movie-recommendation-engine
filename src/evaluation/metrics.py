@@ -44,7 +44,7 @@ def evaluate_models():
     
     with open(ENSEMBLE_MODEL_PATH, "r") as f:
         ensemble_weights = json.load(f)
-    best_alpha = ensemble_weights["best_alpha"]
+    svd_alpha = ensemble_weights.get("svd_alpha", ensemble_weights.get("best_alpha", 0.0))
 
     print("Generating predictions...")
     
@@ -58,8 +58,8 @@ def evaluate_models():
     n_users_als = als_model.user_factors.shape[0]
     n_movies_als = als_model.item_factors.shape[0]
 
-    valid_users = test_df["user_idx"].values < n_users_als
-    valid_movies = test_df["movie_idx"].values < n_movies_als
+    valid_users = (test_df["user_idx"].values >= 0) & (test_df["user_idx"].values < n_users_als)
+    valid_movies = (test_df["movie_idx"].values >= 0) & (test_df["movie_idx"].values < n_movies_als)
     valid_mask = valid_users & valid_movies
 
     u_factors = np.zeros((len(test_df), als_model.user_factors.shape[1]))
@@ -74,19 +74,23 @@ def evaluate_models():
     gc.collect()
 
     # 4. Model C (SVD)
+    print("Generating SVD predictions in chunks...")
     pred_svd = np.empty(len(test_df), dtype=np.float32)
+    
     for start in range(0, len(test_df), 50_000):
         end = min(start + 50_000, len(test_df))
         chunk = test_df.iloc[start:end]
-        testset = list(zip(chunk["CustomerID"].astype(str), chunk["Movie_ID"].astype(str), chunk["Rating"]))
+        
+        testset = list(zip(chunk["CustomerID"], chunk["Movie_ID"], chunk["Rating"]))
+        
         predictions = svd_model.test(testset)
         pred_svd[start:end] = [p.est for p in predictions]
         
     del svd_model
     gc.collect()
 
-    # 5. Model D (Ensemble)
-    pred_ensemble = np.clip(best_alpha * pred_als + (1.0 - best_alpha) * pred_svd, 1.0, 5.0)
+    # 5. Model D (SVD + Popularity Ensemble)
+    pred_ensemble = np.clip(svd_alpha * pred_svd + (1.0 - svd_alpha) * pred_pop, 1.0, 5.0)
 
     def calc_metrics(pred):
         rmse = np.sqrt(((actual_ratings - pred) ** 2).mean())
@@ -151,7 +155,9 @@ def evaluate_models():
         print(f"| {row['Model']:<22} | {row['RMSE']:^8.4f} | {row['MAE']:^8.4f} |")
         
     print("="*50 + "\n")
-    print("The ensemble achieved a marginally lower RMSE than SVD, while SVD retained the lower MAE.")
+    ensemble_rmse = metrics_by_model.loc["Model D (Ensemble)", "RMSE"]
+    svd_rmse = metrics_by_model.loc["Model C (SVD)", "RMSE"]
+    print(f"The ensemble RMSE was {ensemble_rmse:.4f}; SVD RMSE was {svd_rmse:.4f}.")
     print("Note: The extreme error in the ALS model demonstrates the Implicit vs. Explicit Feedback Trap.")
     
     return results

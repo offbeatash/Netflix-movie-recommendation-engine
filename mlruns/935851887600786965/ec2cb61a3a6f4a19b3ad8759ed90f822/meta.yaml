@@ -1,0 +1,15 @@
+artifact_uri: /workspaces/Netflix-movie-recommendation-engine/mlruns/935851887600786965/ec2cb61a3a6f4a19b3ad8759ed90f822/artifacts
+end_time: 1788796211562
+entry_point_name: ''
+experiment_id: '935851887600786965'
+lifecycle_stage: active
+run_id: ec2cb61a3a6f4a19b3ad8759ed90f822
+run_name: selective-conch-498
+run_uuid: ec2cb61a3a6f4a19b3ad8759ed90f822
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1788796211555
+status: 3
+tags: []
+user_id: codespace

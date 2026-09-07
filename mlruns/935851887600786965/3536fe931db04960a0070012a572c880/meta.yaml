@@ -1,0 +1,15 @@
+artifact_uri: /workspaces/Netflix-movie-recommendation-engine/mlruns/935851887600786965/3536fe931db04960a0070012a572c880/artifacts
+end_time: 1788795990639
+entry_point_name: ''
+experiment_id: '935851887600786965'
+lifecycle_stage: active
+run_id: 3536fe931db04960a0070012a572c880
+run_name: exultant-frog-127
+run_uuid: 3536fe931db04960a0070012a572c880
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1788795990632
+status: 3
+tags: []
+user_id: codespace
