@@ -28,7 +28,8 @@ BASELINE_MODEL_PATH = ARTIFACTS_DIR / "popularity_model.pkl"
 ALS_MODEL_PATH = ARTIFACTS_DIR / "als_model.npz"
 SVD_MODEL_PATH = ARTIFACTS_DIR / "svd_model.pkl"
 ENSEMBLE_MODEL_PATH = ARTIFACTS_DIR / "ensemble_weights.json"
-EXPERIMENTS_PATH = BASE_DIR / "experiments.json"
+MLFLOW_TRACKING_URI = str(BASE_DIR / "mlruns")
+MLFLOW_EXPERIMENT_NAME = "netflix-recommendation-evaluation"
 
 # Ensure directories exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)

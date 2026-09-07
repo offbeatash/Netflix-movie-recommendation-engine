@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+import mlflow
 import pandas as pd
 import numpy as np
 import gc
@@ -7,7 +7,8 @@ from sklearn.metrics import mean_absolute_error
 from src.config import (
     TEST_DATA_PATH,
     ENSEMBLE_MODEL_PATH,
-    EXPERIMENTS_PATH,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_EXPERIMENT_NAME,
     MIN_RATINGS_COUNT,
     TRAIN_SPLIT_QUANTILE,
     VAL_SPLIT_QUANTILE,
@@ -117,9 +118,10 @@ def evaluate_models():
     })
 
     metrics_by_model = results.set_index("Model")
-    experiment = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "hyperparameters": {
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+    with mlflow.start_run():
+        mlflow.log_params({
             "min_ratings_count": MIN_RATINGS_COUNT,
             "train_split_quantile": TRAIN_SPLIT_QUANTILE,
             "val_split_quantile": VAL_SPLIT_QUANTILE,
@@ -131,33 +133,13 @@ def evaluate_models():
             "als_factors": ALS_FACTORS,
             "als_iterations": ALS_ITERATIONS,
             "als_regularization": ALS_REGULARIZATION,
-        },
-        "metrics": {
-            "SVD": {
-                "rmse": float(metrics_by_model.loc["Model C (SVD)", "RMSE"]),
-                "mae": float(metrics_by_model.loc["Model C (SVD)", "MAE"]),
-            },
-            "Ensemble": {
-                "rmse": float(metrics_by_model.loc["Model D (Ensemble)", "RMSE"]),
-                "mae": float(metrics_by_model.loc["Model D (Ensemble)", "MAE"]),
-            },
-        },
-    }
-
-    experiments = []
-    if EXPERIMENTS_PATH.exists():
-        try:
-            with EXPERIMENTS_PATH.open("r", encoding="utf-8") as experiments_file:
-                experiments = json.load(experiments_file)
-            if not isinstance(experiments, list):
-                experiments = []
-        except (OSError, json.JSONDecodeError):
-            experiments = []
-
-    experiments.append(experiment)
-    with EXPERIMENTS_PATH.open("w", encoding="utf-8") as experiments_file:
-        json.dump(experiments, experiments_file, indent=2)
-        experiments_file.write("\n")
+        })
+        mlflow.log_metrics({
+            "svd_test_rmse": float(metrics_by_model.loc["Model C (SVD)", "RMSE"]),
+            "svd_test_mae": float(metrics_by_model.loc["Model C (SVD)", "MAE"]),
+            "ensemble_test_rmse": float(metrics_by_model.loc["Model D (Ensemble)", "RMSE"]),
+            "ensemble_test_mae": float(metrics_by_model.loc["Model D (Ensemble)", "MAE"]),
+        })
 
     print("\n" + "="*50)
     print("THE EVALUATION SHOWDOWN ".center(50))

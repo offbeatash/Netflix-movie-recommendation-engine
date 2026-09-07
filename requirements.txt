@@ -13,3 +13,5 @@ matplotlib==3.11.1
 requests==2.34.2
 fastparquet==2026.5.0
 tqdm==4.70.0
+mlflow==2.12.2
+setuptools==70.0.0
