@@ -1,5 +1,6 @@
 import pandas as pd
 import gc
+from src.utils import memory_tracker
 from src.config import (
     PROCESSED_DATA_PATH,
     ENRICHED_MOVIES_PATH,
@@ -10,8 +11,8 @@ from src.config import (
     VAL_SPLIT_QUANTILE
 )
 
+@memory_tracker
 def create_splits():
-    # IDEMPOTENCY CHECK: Skip if splits already exist
     if TRAIN_DATA_PATH.exists() and VAL_DATA_PATH.exists() and TEST_DATA_PATH.exists():
         print("Train, validation, and test splits already exist. Skipping feature engineering phase.")
         return
@@ -22,18 +23,13 @@ def create_splits():
     print(f"Loading enriched movies from {ENRICHED_MOVIES_PATH}...")
     movies = pd.read_csv(ENRICHED_MOVIES_PATH)
     
+    movies["Title"] = movies["Title"].astype("category")
+    movies["Genre"] = movies["Genre"].astype("category")
+    
     print("Merging ratings with movie metadata...")
-    df = df.merge(movies, left_on="MovieID", right_on="Movie_ID", how="left")
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.merge(movies, on="Movie_ID", how="left")
     
-    #Clean up column names to match the downstream modeling logic
-    df.drop(columns="Movie_ID", inplace=True)
-    df.rename(columns={"MovieID": "Movie_ID"}, inplace=True)
-    
-    #Convert to categorical to drastically reduce memory usage
-    df["Title"] = df["Title"].astype("category")
-    df["Genre"] = df["Genre"].astype("category")
-    
-    #Release movies dataframe from RAM
     del movies
     gc.collect()
 
@@ -55,7 +51,6 @@ def create_splits():
     print(f"Filtered dataset shape: {df_model.shape[0]:,} ratings")
     print(f"Users: {df_model['CustomerID'].nunique():,} | Movies: {df_model['Movie_ID'].nunique():,}")
     
-    #free up the un-filtered dataframe
     del df, user_counts, movie_counts
     gc.collect()
 
@@ -80,7 +75,6 @@ def create_splits():
     
     print(f"Success! Train: {len(train_df):,} | Val: {len(val_df):,} | Test: {len(test_df):,}")
     
-    #Final memory release
     del df_model, train_df, val_df, test_df
     gc.collect()
 

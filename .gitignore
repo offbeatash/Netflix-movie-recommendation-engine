@@ -19,9 +19,6 @@ __pycache__/
 /artifacts/*
 !/artifacts/.gitkeep
 
-# Trained models
-/models/
-
 # Notebook-generated models
 /notebooks/models/
 /.gradio/

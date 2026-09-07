@@ -4,7 +4,15 @@ import ctypes
 import pickle
 import pandas as pd
 from surprise import SVD, Dataset, Reader
-from src.config import TRAIN_DATA_PATH, SVD_MODEL_PATH, RANDOM_STATE
+from src.config import (
+    TRAIN_DATA_PATH, 
+    SVD_MODEL_PATH, 
+    RANDOM_STATE,
+    SVD_N_FACTORS,
+    SVD_N_EPOCHS,
+    SVD_LR_ALL,
+    SVD_REG_ALL
+)
 
 def get_or_train_svd(force_retrain=False):
     """Trains the Surprise SVD model or loads an existing one."""
@@ -16,10 +24,8 @@ def get_or_train_svd(force_retrain=False):
     print("Initiating SVD training pipeline...")
     print(f"Loading training data from {TRAIN_DATA_PATH}...")
     
-    # Load strictly the required columns
     train_df = pd.read_parquet(TRAIN_DATA_PATH, columns=["CustomerID", "Movie_ID", "Rating"])
     
-    # Cast IDs to strings to ensure consistent lookup in Surprise dictionaries
     train_df["CustomerID"] = train_df["CustomerID"].astype(str)
     train_df["Movie_ID"] = train_df["Movie_ID"].astype(str)
     
@@ -32,25 +38,21 @@ def get_or_train_svd(force_retrain=False):
     
     trainset = data.build_full_trainset()
     
-    # Free raw DataFrame and loaded ratings data before running SGD
     del train_df, data
     gc.collect()
 
-    print("Training SVD Model using optimized hyperparameters...")
+    print(f"Training SVD Model (Factors: {SVD_N_FACTORS}, Epochs: {SVD_N_EPOCHS})...")
     svd_model = SVD(
-        n_factors=50,
-        n_epochs=20,
-        lr_all=0.005,
-        reg_all=0.04,
+        n_factors=SVD_N_FACTORS,
+        n_epochs=SVD_N_EPOCHS,
+        lr_all=SVD_LR_ALL,
+        reg_all=SVD_REG_ALL,
         random_state=RANDOM_STATE
     )
     
     svd_model.fit(trainset)
     print("Model trained successfully!")
     
-    # ---------------- MEMORY PRUNING FOR SAFE SERIALIZATION ----------------
-    # Setting the historical rating lists to None drops ~95% of object memory.
-    # The dictionary keys remain so `knows_user()` and `knows_item()` continue to work.
     print("Pruning raw rating histories from internal trainset...")
     if hasattr(svd_model, 'trainset') and svd_model.trainset is not None:
         for u in list(svd_model.trainset.ur.keys()):
@@ -61,7 +63,6 @@ def get_or_train_svd(force_retrain=False):
     del trainset
     gc.collect()
     
-    # Flush OS-level fragmented C-heap memory back to the kernel
     try:
         ctypes.CDLL('libc.so.6').malloc_trim(0)
         print("OS memory trim complete. RAM released back to system.")

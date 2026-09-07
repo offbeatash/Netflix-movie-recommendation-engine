@@ -4,9 +4,9 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
-from src.data.ingest import parse_netflix_ratings_to_parquet
+from src.data.ingest import process_raw_data
 
 if __name__ == "__main__":
     print("Starting data ingestion process...")
-    parse_netflix_ratings_to_parquet()
+    process_raw_data()
     print("Ingestion OS process finished. RAM fully released.")

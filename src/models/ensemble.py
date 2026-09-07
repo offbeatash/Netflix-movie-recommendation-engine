@@ -20,11 +20,26 @@ def get_or_train_ensemble(force_retrain=False):
     )
     actual_val = val_df["Rating"].values
 
-    # 1. ALS Validation Predictions
+    # 1. ALS Validation Predictions (With Out-Of-Bounds Protection)
     print("Generating ALS validation predictions...")
     als_model = get_or_train_als()
-    u_factors = als_model.user_factors[val_df["user_idx"].values]
-    m_factors = als_model.item_factors[val_df["movie_idx"].values]
+    
+    n_users_als = als_model.user_factors.shape[0]
+    n_movies_als = als_model.item_factors.shape[0]
+
+    # Mask valid indices to prevent IndexError on validation users unseen in training
+    valid_users = val_df["user_idx"].values < n_users_als
+    valid_movies = val_df["movie_idx"].values < n_movies_als
+    valid_mask = valid_users & valid_movies
+
+    # Initialize empty factor arrays
+    u_factors = np.zeros((len(val_df), als_model.user_factors.shape[1]))
+    m_factors = np.zeros((len(val_df), als_model.item_factors.shape[1]))
+
+    # Inject valid factors safely
+    u_factors[valid_mask] = als_model.user_factors[val_df["user_idx"].values[valid_mask]]
+    m_factors[valid_mask] = als_model.item_factors[val_df["movie_idx"].values[valid_mask]]
+
     pred_als = np.clip(np.sum(u_factors * m_factors, axis=1), 1, 5)
     
     del als_model, u_factors, m_factors
@@ -45,7 +60,7 @@ def get_or_train_ensemble(force_retrain=False):
     del svd_model
     gc.collect()
 
-    # 3. Optimize Alpha
+    # 3.Optimize Alpha
     print("Finding optimal linear blend (Alpha)...")
     best_alpha = 0.0
     best_rmse = float("inf")

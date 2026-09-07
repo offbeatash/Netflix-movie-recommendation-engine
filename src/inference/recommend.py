@@ -3,36 +3,51 @@ from src.config import TRAIN_DATA_PATH, ENRICHED_MOVIES_PATH
 from src.models.svd_model import get_or_train_svd
 from src.models.popularity import get_or_train_popularity
 
+#GLOBAL CACHE: Holds data in RAM across API calls
+_CACHE = {}
+
+def _load_artifacts():
+    """Loads all models and data into memory exactly once at startup."""
+    if not _CACHE:
+        print("Initializing Global Cache for Inference API...")
+        _CACHE["train_df"] = pd.read_parquet(TRAIN_DATA_PATH, columns=["CustomerID", "Movie_ID"])
+        _CACHE["movies_df"] = pd.read_csv(ENRICHED_MOVIES_PATH)
+        
+        #Pre-explode genres once during startup to save CPU on every call
+        movies_exp = _CACHE["movies_df"].copy()
+        movies_exp["Genre"] = movies_exp["Genre"].astype(str).str.split(", ")
+        movies_exp = movies_exp.explode("Genre")
+        _CACHE["movies_exp"] = movies_exp[movies_exp["Genre"].notna() & (movies_exp["Genre"] != "Unknown")]
+        
+        _CACHE["popularity_artifact"] = get_or_train_popularity()
+        _CACHE["svd_model"] = get_or_train_svd()
+    return _CACHE
+
 def generate_genre_recommendations(user_id, top_n=1):
-    """Predicts ratings for unseen movies and returns a status message alongside top picks per genre."""
-    train_df = pd.read_parquet(TRAIN_DATA_PATH, columns=["CustomerID", "Movie_ID"])
-    movies_df = pd.read_csv(ENRICHED_MOVIES_PATH)
+    """Predicts ratings utilizing the pre-loaded global memory cache."""
+    cache = _load_artifacts()
+    
+    train_df = cache["train_df"]
+    movies_exp = cache["movies_exp"]
+    popularity_artifact = cache["popularity_artifact"]
+    svd_model = cache["svd_model"]
     
     user_exists = user_id in train_df["CustomerID"].values
-    
-    # Explode genres early for both pathways
-    movies_exp = movies_df.copy()
-    movies_exp["Genre"] = movies_exp["Genre"].astype(str).str.split(", ")
-    movies_exp = movies_exp.explode("Genre")
-    movies_exp = movies_exp[movies_exp["Genre"].notna() & (movies_exp["Genre"] != "Unknown")]
 
     if not user_exists:
-        # COLD START: Return the most popular movies globally
         status_msg = f"User '{user_id}' not found. Showing global popular movies (Cold Start Baseline)."
-        popularity_artifact = get_or_train_popularity()
         movie_avgs = popularity_artifact["movie_avgs"]
         
-        movies_exp["predicted_rating"] = movies_exp["Movie_ID"].map(movie_avgs).fillna(popularity_artifact["global_mean"])
+        user_movies = movies_exp.copy()
+        user_movies["predicted_rating"] = user_movies["Movie_ID"].map(movie_avgs).fillna(popularity_artifact["global_mean"])
         
         best_per_genre = (
-            movies_exp.sort_values("predicted_rating", ascending=False)
+            user_movies.sort_values("predicted_rating", ascending=False)
             .groupby("Genre")[["Genre", "Title", "predicted_rating"]]
             .head(top_n)
         )
     else:
-        # PERSONALIZED: SVD Predictions
         status_msg = f"Showing personalized results for user: {user_id}"
-        svd_model = get_or_train_svd()
         seen = set(train_df[train_df["CustomerID"] == user_id]["Movie_ID"])
         unseen_exp = movies_exp[~movies_exp["Movie_ID"].isin(seen)].copy()
         

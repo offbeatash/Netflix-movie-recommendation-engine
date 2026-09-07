@@ -37,9 +37,20 @@ def evaluate_models():
     # 2. Model A (Popularity)
     pred_pop = test_df["Movie_ID"].map(movie_avgs).fillna(global_mean).values
     
-    # 3. Model B (ALS)
-    u_factors = als_model.user_factors[test_df["user_idx"].values]
-    m_factors = als_model.item_factors[test_df["movie_idx"].values]
+    # 3. Model B (ALS) - With Out-Of-Bounds Protection
+    n_users_als = als_model.user_factors.shape[0]
+    n_movies_als = als_model.item_factors.shape[0]
+
+    valid_users = test_df["user_idx"].values < n_users_als
+    valid_movies = test_df["movie_idx"].values < n_movies_als
+    valid_mask = valid_users & valid_movies
+
+    u_factors = np.zeros((len(test_df), als_model.user_factors.shape[1]))
+    m_factors = np.zeros((len(test_df), als_model.item_factors.shape[1]))
+
+    u_factors[valid_mask] = als_model.user_factors[test_df["user_idx"].values[valid_mask]]
+    m_factors[valid_mask] = als_model.item_factors[test_df["movie_idx"].values[valid_mask]]
+
     pred_als = np.clip(np.sum(u_factors * m_factors, axis=1), 1, 5)
     
     del als_model, u_factors, m_factors
@@ -90,7 +101,7 @@ def evaluate_models():
     })
 
     print("\n" + "="*50)
-    print("✨ THE EVALUATION SHOWDOWN ✨".center(50))
+    print("THE EVALUATION SHOWDOWN ".center(50))
     print("="*50)
     print(f"| {'Model':<22} | {'RMSE':^8} | {'MAE':^8} |")
     print("-" * 50)
