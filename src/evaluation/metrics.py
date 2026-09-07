@@ -1,9 +1,25 @@
 import json
+from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
 import gc
 from sklearn.metrics import mean_absolute_error
-from src.config import TEST_DATA_PATH, ENSEMBLE_MODEL_PATH
+from src.config import (
+    TEST_DATA_PATH,
+    ENSEMBLE_MODEL_PATH,
+    EXPERIMENTS_PATH,
+    MIN_RATINGS_COUNT,
+    TRAIN_SPLIT_QUANTILE,
+    VAL_SPLIT_QUANTILE,
+    RANDOM_STATE,
+    SVD_N_FACTORS,
+    SVD_N_EPOCHS,
+    SVD_LR_ALL,
+    SVD_REG_ALL,
+    ALS_FACTORS,
+    ALS_ITERATIONS,
+    ALS_REGULARIZATION,
+)
 from src.models.popularity import get_or_train_popularity
 from src.models.als_model import get_or_train_als
 from src.models.svd_model import get_or_train_svd
@@ -99,6 +115,49 @@ def evaluate_models():
             calc_metrics(pred_ensemble)[1]
         ]
     })
+
+    metrics_by_model = results.set_index("Model")
+    experiment = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "hyperparameters": {
+            "min_ratings_count": MIN_RATINGS_COUNT,
+            "train_split_quantile": TRAIN_SPLIT_QUANTILE,
+            "val_split_quantile": VAL_SPLIT_QUANTILE,
+            "random_state": RANDOM_STATE,
+            "svd_n_factors": SVD_N_FACTORS,
+            "svd_n_epochs": SVD_N_EPOCHS,
+            "svd_lr_all": SVD_LR_ALL,
+            "svd_reg_all": SVD_REG_ALL,
+            "als_factors": ALS_FACTORS,
+            "als_iterations": ALS_ITERATIONS,
+            "als_regularization": ALS_REGULARIZATION,
+        },
+        "metrics": {
+            "SVD": {
+                "rmse": float(metrics_by_model.loc["Model C (SVD)", "RMSE"]),
+                "mae": float(metrics_by_model.loc["Model C (SVD)", "MAE"]),
+            },
+            "Ensemble": {
+                "rmse": float(metrics_by_model.loc["Model D (Ensemble)", "RMSE"]),
+                "mae": float(metrics_by_model.loc["Model D (Ensemble)", "MAE"]),
+            },
+        },
+    }
+
+    experiments = []
+    if EXPERIMENTS_PATH.exists():
+        try:
+            with EXPERIMENTS_PATH.open("r", encoding="utf-8") as experiments_file:
+                experiments = json.load(experiments_file)
+            if not isinstance(experiments, list):
+                experiments = []
+        except (OSError, json.JSONDecodeError):
+            experiments = []
+
+    experiments.append(experiment)
+    with EXPERIMENTS_PATH.open("w", encoding="utf-8") as experiments_file:
+        json.dump(experiments, experiments_file, indent=2)
+        experiments_file.write("\n")
 
     print("\n" + "="*50)
     print("THE EVALUATION SHOWDOWN ".center(50))

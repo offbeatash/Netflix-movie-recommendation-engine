@@ -28,6 +28,7 @@ BASELINE_MODEL_PATH = ARTIFACTS_DIR / "popularity_model.pkl"
 ALS_MODEL_PATH = ARTIFACTS_DIR / "als_model.npz"
 SVD_MODEL_PATH = ARTIFACTS_DIR / "svd_model.pkl"
 ENSEMBLE_MODEL_PATH = ARTIFACTS_DIR / "ensemble_weights.json"
+EXPERIMENTS_PATH = BASE_DIR / "experiments.json"
 
 # Ensure directories exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,3 +45,8 @@ SVD_N_FACTORS = 50
 SVD_N_EPOCHS = 20
 SVD_LR_ALL = 0.005
 SVD_REG_ALL = 0.04
+
+# ALS Hyperparameters
+ALS_FACTORS = 50
+ALS_ITERATIONS = 50
+ALS_REGULARIZATION = 0.1

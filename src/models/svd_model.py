@@ -13,10 +13,24 @@ from src.config import (
     SVD_LR_ALL,
     SVD_REG_ALL
 )
+from src.utils import check_artifact_freshness, save_artifact_metadata
+
+
+SVD_PARAMS = {
+    "n_factors": SVD_N_FACTORS,
+    "n_epochs": SVD_N_EPOCHS,
+    "lr_all": SVD_LR_ALL,
+    "reg_all": SVD_REG_ALL,
+    "random_state": RANDOM_STATE,
+}
 
 def get_or_train_svd(force_retrain=False):
     """Trains the Surprise SVD model or loads an existing one."""
-    if SVD_MODEL_PATH.exists() and not force_retrain:
+    if (
+        SVD_MODEL_PATH.exists()
+        and not force_retrain
+        and check_artifact_freshness(SVD_MODEL_PATH, SVD_PARAMS)
+    ):
         print(f"Saved SVD model found at {SVD_MODEL_PATH}. Loading...")
         with open(SVD_MODEL_PATH, "rb") as f:
             return pickle.load(f)
@@ -76,6 +90,7 @@ def get_or_train_svd(force_retrain=False):
         pickle.dump(svd_model, f, protocol=pickle.HIGHEST_PROTOCOL)
         
     temp_model_path.replace(SVD_MODEL_PATH)
+    save_artifact_metadata(SVD_MODEL_PATH, SVD_PARAMS)
     print(f"SVD model secured at: {SVD_MODEL_PATH}")
     
     return svd_model

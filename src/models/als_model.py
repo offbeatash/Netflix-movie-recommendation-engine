@@ -11,12 +11,28 @@ from src.config import (
     VAL_DATA_PATH,
     TEST_DATA_PATH,
     ALS_MODEL_PATH,
-    RANDOM_STATE
+    RANDOM_STATE,
+    ALS_FACTORS,
+    ALS_ITERATIONS,
+    ALS_REGULARIZATION,
 )
+from src.utils import check_artifact_freshness, save_artifact_metadata
+
+
+ALS_PARAMS = {
+    "factors": ALS_FACTORS,
+    "iterations": ALS_ITERATIONS,
+    "regularization": ALS_REGULARIZATION,
+    "random_state": RANDOM_STATE,
+}
 
 def get_or_train_als(force_retrain=False):
     """Trains the implicit ALS matrix factorization model or loads an existing one."""
-    if ALS_MODEL_PATH.exists() and not force_retrain:
+    if (
+        ALS_MODEL_PATH.exists()
+        and not force_retrain
+        and check_artifact_freshness(ALS_MODEL_PATH, ALS_PARAMS)
+    ):
         print(f"Saved ALS model found at {ALS_MODEL_PATH}. Loading...")
         return implicit.cpu.als.AlternatingLeastSquares.load(str(ALS_MODEL_PATH))
 
@@ -53,9 +69,9 @@ def get_or_train_als(force_retrain=False):
     
     print("Training Implicit ALS model...")
     als_model = implicit.als.AlternatingLeastSquares(
-        factors=50,
-        iterations=50,
-        regularization=0.1,
+        factors=ALS_FACTORS,
+        iterations=ALS_ITERATIONS,
+        regularization=ALS_REGULARIZATION,
         random_state=RANDOM_STATE
     )
     
@@ -66,6 +82,7 @@ def get_or_train_als(force_retrain=False):
     
     print("Saving ALS model artifact...")
     als_model.save(str(ALS_MODEL_PATH))
+    save_artifact_metadata(ALS_MODEL_PATH, ALS_PARAMS)
     print(f"ALS model secured at: {ALS_MODEL_PATH}")
     
     del user_item_matrix
