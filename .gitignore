@@ -1,0 +1,38 @@
+# Environment
+.env
+.env.*
+!.env.example
+.venv/
+.agents/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+/data/*
+*.parquet
+!/data/.gitkeep
+
+# Generated artifacts
+/artifacts/*
+!/artifacts/.gitkeep
+
+# MLflow experiment tracking
+mlruns/*
+!mlruns/.gitkeep
+
+# Notebook-generated models
+/notebooks/models/
+/.gradio/
+
+#tests
+!tests/fixtures/train.parquet
+
+# CI runtime fixtures
+.ci-runtime/*
+
+.pytest_cache/

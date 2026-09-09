@@ -1,0 +1,13 @@
+services:
+  netflix-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: netflix-recommender:latest
+    container_name: netflix-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+      - ./artifacts:/app/artifacts:ro
+    restart: unless-stopped

@@ -1,0 +1,33 @@
+# Git
+.git/
+.gitignore
+.github/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Gradio
+.gradio/
+
+# Logs
+*.log
+
+# OS / IDE
+.DS_Store
+
+# Development-only trained models
+models/
+
+data/
+artifacts/
