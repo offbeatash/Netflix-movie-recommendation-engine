@@ -120,7 +120,7 @@ def evaluate_models():
             "Model": [
                 "Naive Baseline",
                 "Model A (Popularity)",
-                "Model B (ALS)",
+                "Model B (ALS - Demo Only)",
                 "Model C (SVD)",
                 "Model D (Ensemble)",
             ],

@@ -32,7 +32,7 @@ def get_or_train_als(force_retrain=False):
     if (
         ALS_MODEL_PATH.exists()
         and not force_retrain
-        and check_artifact_freshness(ALS_MODEL_PATH, ALS_PARAMS)
+        and check_artifact_freshness(ALS_MODEL_PATH, ALS_PARAMS, [TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH])
     ):
         print(f"Saved ALS model found at {ALS_MODEL_PATH}. Loading...")
         return implicit.cpu.als.AlternatingLeastSquares.load(str(ALS_MODEL_PATH))
@@ -90,8 +90,12 @@ def get_or_train_als(force_retrain=False):
     als_model.item_factors[user_item_matrix.getnnz(axis=0) == 0] = 0
 
     print("Saving ALS model artifact...")
-    als_model.save(str(ALS_MODEL_PATH))
-    save_artifact_metadata(ALS_MODEL_PATH, ALS_PARAMS)
+    # The implicit library preserves the original file extension and adds .tmp before it
+    # So if ALS_MODEL_PATH is "model.npz", it will save to "model.tmp.npz"
+    temp_model_path = ALS_MODEL_PATH.with_suffix('.tmp' + ALS_MODEL_PATH.suffix)
+    als_model.save(str(temp_model_path))
+    temp_model_path.replace(ALS_MODEL_PATH)
+    save_artifact_metadata(ALS_MODEL_PATH, ALS_PARAMS, [TRAIN_DATA_PATH, VAL_DATA_PATH, TEST_DATA_PATH])
     print(f"ALS model secured at: {ALS_MODEL_PATH}")
 
     del user_item_matrix

@@ -1,9 +1,5 @@
-# Scientific stack. NumPy 2.3 is the first line with wheels for Python 3.14;
-# NumPy 1.26 keeps Python 3.10 supported.
-numpy==1.26.4; python_version < "3.11"
 numpy==2.3.5; python_version >= "3.11"
 pandas==2.3.3
-scipy==1.14.1; python_version < "3.11"
 scipy==1.16.3; python_version >= "3.11"
 pyarrow==25.0.1
 fastparquet==2024.11.0; python_version < "3.14"
@@ -11,11 +7,9 @@ fastparquet==2025.12.0; python_version >= "3.14"
 scikit-learn==1.7.2
 joblib==1.6.0
 
-# Recommender systems. Both packages publish wheels for Python 3.10-3.14.
 implicit==0.7.3
 scikit-surprise==1.1.5
 
-# API, UI, and experiment tracking.
 mlflow==3.16.0
 fastapi==0.141.1
 uvicorn==0.52.4
@@ -24,7 +18,6 @@ prometheus-client==0.20.0
 gradio==6.26.0
 huggingface_hub>=1.16,<2
 
-# Utilities.
 python-dotenv==1.1.1
 requests==2.32.5
 tqdm==4.70.0

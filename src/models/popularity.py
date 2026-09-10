@@ -2,13 +2,16 @@ import logging
 import pandas as pd
 import pickle
 from src.config import TRAIN_DATA_PATH, BASELINE_MODEL_PATH, MIN_RATINGS_COUNT
+from src.utils import check_artifact_freshness, save_artifact_metadata
 
 logger = logging.getLogger(__name__)
 
 
 def get_or_train_popularity(force_retrain=False):
     """Calculates or loads the popularity baseline (global mean and movie averages)."""
-    if BASELINE_MODEL_PATH.exists() and not force_retrain:
+    current_params = {"min_ratings_count": MIN_RATINGS_COUNT}
+    if (not force_retrain and
+        check_artifact_freshness(BASELINE_MODEL_PATH, current_params, TRAIN_DATA_PATH)):
         logger.info("Saved popularity model found; loading")
         with open(BASELINE_MODEL_PATH, "rb") as f:
             return pickle.load(f)
@@ -29,8 +32,12 @@ def get_or_train_popularity(force_retrain=False):
     model_artifact = {"global_mean": global_mean, "movie_avgs": movie_avgs}
 
     logger.info("Saving popularity baseline artifact")
-    with open(BASELINE_MODEL_PATH, "wb") as f:
+    temp_model_path = BASELINE_MODEL_PATH.with_suffix(".tmp")
+    with open(temp_model_path, "wb") as f:
         pickle.dump(model_artifact, f)
+    temp_model_path.replace(BASELINE_MODEL_PATH)
 
     logger.info("Popularity baseline artifact saved")
+    save_artifact_metadata(BASELINE_MODEL_PATH, current_params, TRAIN_DATA_PATH)
+
     return model_artifact

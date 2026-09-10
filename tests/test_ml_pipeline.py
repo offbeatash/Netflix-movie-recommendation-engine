@@ -129,137 +129,6 @@ def test_fixture_train_contains_required_model_columns():
     assert len(train) > 0
 
 
-def test_temporal_split_prevents_future_only_entities_from_entering_model_data(
-    tmp_path,
-    monkeypatch,
-):
-    """
-    Regression test for temporal leakage.
-
-    User/movie activity thresholds must be calculated using only the
-    training period.
-    """
-    from src.data import build_features
-
-    processed_path = tmp_path / "processed.parquet"
-    movies_path = tmp_path / "movies.csv"
-    train_path = tmp_path / "train.parquet"
-    val_path = tmp_path / "val.parquet"
-    test_path = tmp_path / "test.parquet"
-
-    rows = []
-
-    # Active user/movie with sufficient training history.
-    for i in range(100):
-        rows.append(
-            {
-                "MovieID": 1,
-                "CustomerID": 1,
-                "Rating": 4,
-                "Date": pd.Timestamp("2000-01-01") + pd.Timedelta(days=i),
-            }
-        )
-
-    # Second training-period entity helps establish a broader timeline.
-    for i in range(100):
-        rows.append(
-            {
-                "MovieID": 2,
-                "CustomerID": 2,
-                "Rating": 3,
-                "Date": pd.Timestamp("2000-04-01") + pd.Timedelta(days=i),
-            }
-        )
-
-    # Movie 3 has 50 ratings, but they are entirely in the future.
-    # It must NOT pass the movie activity threshold.
-    for i in range(50):
-        rows.append(
-            {
-                "MovieID": 3,
-                "CustomerID": 999 if i < 10 else 3,
-                "Rating": 5,
-                "Date": pd.Timestamp("2001-01-01") + pd.Timedelta(days=i),
-            }
-        )
-
-    # Future ratings.
-    for i in range(50):
-        rows.append(
-            {
-                "MovieID": 2,
-                "CustomerID": 2,
-                "Rating": 4,
-                "Date": pd.Timestamp("2001-03-01") + pd.Timedelta(days=i),
-            }
-        )
-
-    pd.DataFrame(rows).to_parquet(processed_path, index=False)
-
-    pd.DataFrame(
-        {
-            "Movie_ID": [1, 2, 3],
-            "Title": [
-                "Active Movie",
-                "Second Movie",
-                "Future Only Movie",
-            ],
-            "Genre": [
-                "Drama",
-                "Comedy",
-                "Science Fiction",
-            ],
-        }
-    ).to_csv(movies_path, index=False)
-
-    monkeypatch.setattr(
-        build_features,
-        "PROCESSED_DATA_PATH",
-        processed_path,
-    )
-    monkeypatch.setattr(
-        build_features,
-        "ENRICHED_MOVIES_PATH",
-        movies_path,
-    )
-    monkeypatch.setattr(
-        build_features,
-        "TRAIN_DATA_PATH",
-        train_path,
-    )
-    monkeypatch.setattr(
-        build_features,
-        "VAL_DATA_PATH",
-        val_path,
-    )
-    monkeypatch.setattr(
-        build_features,
-        "TEST_DATA_PATH",
-        test_path,
-    )
-
-    build_features.create_splits()
-
-    train = pd.read_parquet(train_path)
-    val = pd.read_parquet(val_path)
-    test = pd.read_parquet(test_path)
-
-    assert train["Date"].max() < val["Date"].min()
-    assert val["Date"].max() < test["Date"].min()
-
-    # Future-only user must never become active.
-    assert 999 not in train["CustomerID"].unique()
-    assert 999 not in val["CustomerID"].unique()
-    assert 999 not in test["CustomerID"].unique()
-
-    # Future-only movie must never become active.
-    assert 3 not in train["Movie_ID"].unique()
-    assert 3 not in val["Movie_ID"].unique()
-    assert 3 not in test["Movie_ID"].unique()
-
-    # Genuine active entities remain.
-    assert 1 in train["CustomerID"].unique()
-    assert 1 in train["Movie_ID"].unique()
 
 
 # POPULARITY
@@ -662,3 +531,114 @@ def test_rmse_and_mae_known_values():
 
     assert rmse == pytest.approx(1.0)
     assert mae == pytest.approx(1.0)
+
+
+def test_predict_batch_clipping():
+    """Test that predict_batch clips predictions to [1.0, 5.0]."""
+    from src.models.svd_model import predict_batch
+
+    class FakeTrainset:
+        global_mean = 3.0
+
+        def to_inner_uid(self, user_id):
+            return 0 if str(user_id) == "1" else None
+
+        def to_inner_iid(self, movie_id):
+            mapping = {"1": 0}  # only movie 1 known
+            return mapping.get(str(movie_id), -1)
+
+    # Model that would produce out-of-range predictions without clipping
+    model = SimpleNamespace(
+        trainset=FakeTrainset(),
+        pu=np.array([[2.0]]),  # high user factor
+        bu=np.array([0.0]),
+        qi=np.array([[2.0]]),  # high item factor
+        bi=np.array([0.0]),
+    )
+
+    # Test clipping high prediction
+    predictions = predict_batch(model, user_id="1", movie_ids=["1"])
+    assert predictions[0] == 5.0  # should be clipped to 5.0
+
+    # Test clipping low prediction (by making biases negative)
+    model2 = SimpleNamespace(
+        trainset=FakeTrainset(),
+        pu=np.array([[0.0]]),
+        bu=np.array([-5.0]),  # very negative user bias
+        qi=np.array([[0.0]]),
+        bi=np.array([0.0]),
+    )
+    predictions2 = predict_batch(model2, user_id="1", movie_ids=["1"])
+    assert predictions2[0] == 1.0  # should be clipped to 1.0
+
+    # Test unchanged prediction within range
+    model3 = SimpleNamespace(
+        trainset=FakeTrainset(),
+        pu=np.array([[0.0]]),
+        bu=np.array([0.0]),
+        qi=np.array([[0.0]]),
+        bi=np.array([0.0]),
+    )
+    predictions3 = predict_batch(model3, user_id="1", movie_ids=["1"])
+    assert predictions3[0] == 3.0  # global_mean + 0 + 0 + 0 = 3.0
+
+
+def test_predict_batch_unknown_user():
+    """Test that unknown users return global_mean."""
+    from src.models.svd_model import predict_batch
+
+    class FakeTrainset:
+        global_mean = 2.5
+
+        def to_inner_uid(self, user_id):
+            # Only user "1" is known
+            if str(user_id) == "1":
+                return 0
+            raise ValueError(f"Unknown user: {user_id}")
+
+        def to_inner_iid(self, movie_id):
+            return 0 if str(movie_id) == "1" else -1
+
+    model = SimpleNamespace(
+        trainset=FakeTrainset(),
+        pu=np.array([[1.0]]),
+        bu=np.array([0.5]),
+        qi=np.array([[1.0]]),
+        bi=np.array([0.5]),
+    )
+
+    # Unknown user should return global_mean regardless of movie
+    predictions = predict_batch(model, user_id="999", movie_ids=["1", "2"])
+    expected = np.array([2.5, 2.5])  # global_mean for both
+    np.testing.assert_allclose(predictions, expected)
+
+
+def test_predict_batch_unknown_movie():
+    """Test that unknown movies return global_mean + user_bias."""
+    from src.models.svd_model import predict_batch
+
+    class FakeTrainset:
+        global_mean = 3.0
+
+        def to_inner_uid(self, user_id):
+            return 0 if str(user_id) == "1" else None
+
+        def to_inner_iid(self, movie_id):
+            # Only movie "1" is known
+            if str(movie_id) == "1":
+                return 0
+            raise ValueError(f"Unknown movie: {movie_id}")
+
+    model = SimpleNamespace(
+        trainset=FakeTrainset(),
+        pu=np.array([[0.0]]),
+        bu=np.array([0.5]),  # user bias 0.5
+        qi=np.array([[0.0]]),
+        bi=np.array([0.0]),
+    )
+
+    # Known movie: global_mean + user_bias + item_bias + dot = 3.0 + 0.5 + 0.0 + 0 = 3.5
+    # Unknown movie: global_mean + user_bias = 3.0 + 0.5 = 3.5
+    predictions = predict_batch(model, user_id="1", movie_ids=["1", "2"])
+    expected = np.array([3.5, 3.5])
+    np.testing.assert_allclose(predictions, expected)

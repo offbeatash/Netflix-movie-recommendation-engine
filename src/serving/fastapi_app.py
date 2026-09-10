@@ -19,9 +19,12 @@ from src.serving.monitoring import (
     HTTP_ERRORS,
     HTTP_REQUESTS,
     HTTP_REQUEST_LATENCY,
+    INFERENCE_ERRORS,
     PERSONALIZED_REQUESTS,
+    RECOMMENDATION_LATENCY,
     RECOMMENDATION_REQUESTS,
     RECOMMENDATIONS_RETURNED,
+    SERVICE_UPTIME_SECONDS,
     observe_metric,
 )
 
@@ -36,6 +39,9 @@ app = FastAPI(
     ),
     version="1.0.0",
 )
+
+# Track service start time for uptime metric
+_SERVICE_START_TIME = time.perf_counter()
 
 
 # Define request schema
@@ -116,6 +122,10 @@ def readiness_check():
 
 @app.get("/metrics")
 def metrics():
+    # Update uptime gauge before serving metrics
+    # Update uptime gauge before serving metrics
+    uptime = time.perf_counter() - _SERVICE_START_TIME
+    observe_metric(SERVICE_UPTIME_SECONDS.set, uptime)
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -123,6 +133,7 @@ def metrics():
 def get_recommendations(request: RecommendationRequest):
     """Generates top-N movie recommendations per genre for a given user."""
     observe_metric(RECOMMENDATION_REQUESTS.inc)
+    start_time = time.perf_counter()
     try:
         status_msg, results_df = generate_genre_recommendations(
             user_id=request.user_id, top_n=request.top_n
@@ -133,14 +144,29 @@ def get_recommendations(request: RecommendationRequest):
             observe_metric(EMPTY_RECOMMENDATION_RESULTS.inc)
         if "not found" in status_msg.lower():
             observe_metric(COLD_START_REQUESTS.inc)
+            request_type = "cold_start"
         else:
             observe_metric(PERSONALIZED_REQUESTS.inc)
+            request_type = "personalized"
+
+        # Record recommendation generation latency
+        observe_metric(
+            RECOMMENDATION_LATENCY.labels(request_type=request_type).observe,
+            time.perf_counter() - start_time,
+        )
 
         return {
             "status_message": status_msg,
             "recommendations": results_df.to_dict(orient="records"),
         }
-    except Exception:
+    except Exception as e:
+        # Track inference errors
+        error_type = "inference"
+        if "not found" in str(e).lower() or "missing" in str(e).lower():
+            error_type = "data_loading"
+        elif "model" in str(e).lower():
+            error_type = "model_loading"
+        observe_metric(INFERENCE_ERRORS.labels(error_type=error_type).inc)
         logger.exception("Recommendation request failed")
         raise HTTPException(
             status_code=500,

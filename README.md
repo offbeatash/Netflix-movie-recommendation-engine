@@ -120,11 +120,11 @@ A TMDb key is only required when `data/movies_with_genres.csv` does not already 
 
 The full dataset and trained artifacts are not committed to Git because of their size.
 
-For evaluation or immediate use, the prepared `data/` and `artifacts/` directories are available here:
+For evaluation or immediate use, prepared `data/` and `artifacts/` directories are available via the link below. However, for true reproducibility and production use, we recommend generating these artifacts yourself by running the complete pipeline.
 
-[Download dataset and trained artifacts](https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing)
+[Download sample dataset and artifacts](https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing)
 
-Download the required files and place them in the repository as:
+If using the downloaded artifacts, place them in the repository as:
 
 ```text
 data/
@@ -136,6 +136,12 @@ artifacts/
 ├── svd_model.pkl
 └── ensemble_weights.json
 ```
+
+> **Note**: While this repository implements production-quality ML practices (temporal leakage prevention, proper experiment tracking, containerization, etc.), claiming "production-readiness" depends on your deployment environment and operational practices. The Google Drive artifact distribution is provided for convenience and evaluation purposes only. For production use, you should:
+> 1. Generate artifacts using the provided Makefile pipeline
+> 2. Implement proper artifact storage (model registry, versioned storage)
+> 3. Set up monitoring and alerting beyond basic metrics emission
+> 4. Establish CI/CD pipelines for automated retraining and deployment
 
 Additional dataset files may be included for reproducing the complete training pipeline.
 
@@ -255,17 +261,19 @@ ingest -> enrich -> split -> train -> evaluate
 
 ## Model Evaluation
 
-The current evaluation compares several approaches on the held-out test split.
+The current evaluation compares several approaches on the held-out test split. 
+Note: ALS is included for demonstration purposes only to illustrate why implicit 
+feedback models are inappropriate for explicit rating prediction.
 
 Representative results:
 
-| Model                         |       RMSE |    MAE |
-| ----------------------------- | ---------: | -----: |
-| Naive Mean Baseline           |     1.0841 | 0.9183 |
-| Popularity                    |     1.0371 | 0.8379 |
-| ALS                           |     2.8969 | 2.6889 |
-| SVD                           |     0.9945 | 0.7868 |
-| **SVD + Popularity Ensemble** | **0.9927** | 0.7882 |
+| Model                                 |       RMSE |    MAE |
+| ------------------------------------- | ---------: | -----: |
+| Naive Mean Baseline                   |     1.0841 | 0.9183 |
+| Popularity                            |     1.0371 | 0.8379 |
+| ALS (Demo Only - Implicit/Explicit Mismatch) |     2.8969 | 2.6889 |
+| SVD                                   |     0.9945 | 0.7868 |
+| **SVD + Popularity Ensemble**         | **0.9927** | 0.7882 |
 
 ### Interpretation
 
@@ -396,11 +404,44 @@ Example response shape:
 }
 ```
 
-### Prometheus metrics
+### Metrics Instrumentation
+
+The service emits Prometheus metrics at the `/metrics` endpoint. For a complete monitoring solution, you would need to:
+- Set up a Prometheus server to scrape these metrics
+- Configure alerting rules for key metrics
+- Create dashboards (e.g., in Grafana) to visualize service performance
 
 ```bash
 curl http://localhost:8000/metrics
 ```
+
+### Available Metrics
+
+The following metrics are currently exposed:
+
+#### HTTP Metrics
+- `http_requests_total`: Counter of all HTTP requests (labels: method, path, status)
+- `http_errors_total`: Counter of HTTP 4xx/5xx responses (labels: method, path, status)
+- `http_request_duration_seconds`: Histogram of request latency in seconds (labels: method, path)
+
+#### Recommendation Metrics
+- `recommendation_requests_total`: Counter of all recommendation requests
+- `cold_start_requests_total`: Counter of requests for unknown users (cold-start)
+- `personalized_recommendation_requests_total`: Counter of requests for known users (personalized)
+- `empty_recommendation_results_total`: Counter of requests returning zero recommendations
+- `recommendations_returned_total`: Counter of total recommendation rows returned
+- `recommendation_generation_duration_seconds`: Histogram of recommendation generation time (labels: request_type - personalized or cold_start)
+
+#### Error Metrics
+- `inference_errors_total`: Counter of inference errors (labels: error_type - inference, model_loading, data_loading)
+- `model_loading_errors_total`: Counter of model loading errors (labels: model_type - popularity, svd, ensemble)
+- `data_loading_errors_total`: Counter of data loading errors (labels: data_type - train, movies)
+
+#### Health & Service Metrics
+- `model_load_status`: Gauge of model loading status (1 = loaded, 0 = failed, -1 = not attempted) (labels: model_type)
+- `data_load_status`: Gauge of data loading status (1 = loaded, 0 = failed, -1 = not attempted) (labels: data_type)
+- `service_uptime_seconds`: Gauge of seconds since service started
+- `model_cache_initialization_seconds`: Gauge of time spent initializing inference cache
 
 ## Model Notes
 
@@ -427,13 +468,17 @@ These values were selected through prior offline hyperparameter experimentation 
 
 The final production training pipeline uses the selected configuration directly rather than performing an expensive hyperparameter search during every training run.
 
-### ALS
+### ALS (Demonstration Only)
 
 Uses a sparse user-item matrix and is primarily useful for implicit interaction or ranking scenarios.
+It is **not appropriate** for explicit 1-to-5 rating prediction tasks.
 
-Its predictions are evaluated against the explicit 1-to-5 rating task for comparison.
+Its predictions are evaluated against the explicit 1-to-5 rating task **only for demonstration purposes** 
+to show why implicit feedback models like ALS are unsuitable for explicit rating prediction.
+The high error rate (~2.9 RMSE) illustrates the "Implicit vs. Explicit Feedback Trap."
 
-ALS is currently an **offline comparison model** and is not part of the production recommendation path.
+ALS is **not part** of the production recommendation path and is included solely for educational 
+purposes to highlight this important distinction in recommendation system design.
 
 ### Ensemble
 
@@ -544,6 +589,38 @@ train dates <= validation dates
 ```
 
 and that user/movie activity filtering is based only on the training-period data.
+
+## Continuous Integration
+
+The project uses GitHub Actions for continuous integration. The CI workflow runs on pushes and pull requests to the main, master, and 2.0 branches.
+
+The CI pipeline includes:
+
+1. **Validation Job**: Checks imports, code syntax (flake8), formatting (black), and type safety (mypy)
+2. **Build and Test Job**: 
+   - Tests across Python 3.11, 3.12, 3.13, and 3.14
+   - Installs dependencies using requirements-dev.txt
+   - Runs the complete test suite
+   - Builds and validates Docker image
+   - Performs runtime smoke tests (health, readiness, and inference endpoints)
+
+To trigger the CI workflow locally, you can use the same commands that the CI runs:
+
+```bash
+# Validation
+pip install -r requirements-dev.txt
+python -c "import src.serving.fastapi_app; import src.inference.recommend; import src.models.popularity; import src.models.svd_model; import src.models.als_model; print('All imports successful')"
+flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+black --check --diff src/
+mypy src/ --ignore-missing-imports
+
+# Testing
+PYTHONPATH=. pytest tests/ -v
+
+# Docker validation (optional)
+docker build -t netflix-recommender:local .
+# Then run the container and test endpoints as shown in the CI workflow
+```
 
 ## MLflow
 

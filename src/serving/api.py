@@ -76,7 +76,8 @@ def interface_wrapper(user_id_str):
 # Main Gradio interface
 with gr.Blocks() as demo:
 
-    gr.Markdown("""
+    gr.Markdown(
+        """
         # 🎬 Netflix Movie Recommender
 
         Enter a valid Netflix Customer ID to generate personalized
@@ -86,7 +87,8 @@ with gr.Blocks() as demo:
 
         Valid users receive personalized recommendations.
         Leave blank or enter an unknown ID to test the **Cold Start global baseline**.
-        """)
+        """
+    )
 
     with gr.Row():
         user_id_input = gr.Textbox(

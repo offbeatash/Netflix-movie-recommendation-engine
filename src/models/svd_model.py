@@ -32,7 +32,7 @@ def get_or_train_svd(force_retrain=False):
     if (
         SVD_MODEL_PATH.exists()
         and not force_retrain
-        and check_artifact_freshness(SVD_MODEL_PATH, SVD_PARAMS)
+        and check_artifact_freshness(SVD_MODEL_PATH, SVD_PARAMS, TRAIN_DATA_PATH)
     ):
         print(f"Saved SVD model found at {SVD_MODEL_PATH}. Loading...")
         logger.info("Saved SVD model found; loading")
@@ -102,7 +102,7 @@ def get_or_train_svd(force_retrain=False):
         pickle.dump(svd_model, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     temp_model_path.replace(SVD_MODEL_PATH)
-    save_artifact_metadata(SVD_MODEL_PATH, SVD_PARAMS)
+    save_artifact_metadata(SVD_MODEL_PATH, SVD_PARAMS, TRAIN_DATA_PATH)
     print(f"SVD model artifact saved to {SVD_MODEL_PATH}.")
     logger.info("SVD model artifact saved")
 
@@ -126,59 +126,93 @@ def predict_batch(svd_model, user_id, movie_ids):
 
     trainset = svd_model.trainset
 
-    raw_user_id = str(user_id)
-    raw_movie_ids = np.asarray(
-        [str(movie_id) for movie_id in movie_ids],
-        dtype=object,
+    movie_ids = np.asarray(movie_ids)
+
+    if movie_ids.size == 0:
+        return np.empty(0, dtype=float)
+
+    required_attributes = (
+        "pu",
+        "qi",
+        "bu",
+        "bi",
+        "trainset",
     )
 
-    inner_uid = trainset.to_inner_uid(raw_user_id)
+    if not all(hasattr(svd_model, attr) for attr in required_attributes):
+        return np.asarray(
+            [
+                svd_model.predict(
+                    str(user_id),
+                    str(movie_id),
+                ).est
+                for movie_id in movie_ids
+            ],
+            dtype=float,
+        )
+
+    raw_user_id = str(user_id)
+
+    try:
+        inner_uid = trainset.to_inner_uid(raw_user_id)
+    except ValueError:
+        global_mean = float(trainset.global_mean)
+
+        return np.full(
+            movie_ids.size,
+            global_mean,
+            dtype=float,
+        )
+
+    global_mean = float(trainset.global_mean)
+
+    user_bias = float(svd_model.bu[inner_uid])
 
     user_factors = np.asarray(
         svd_model.pu[inner_uid],
         dtype=np.float64,
     )
-    user_bias = float(svd_model.bu[inner_uid])
+
+    inner_item_ids = []
+
+    for movie_id in movie_ids:
+        try:
+            inner_item_ids.append(trainset.to_inner_iid(str(movie_id)))
+        except ValueError:
+            inner_item_ids.append(-1)
+
+    inner_item_ids = np.asarray(
+        inner_item_ids,
+        dtype=np.int64,
+    )
+
+    known_mask = inner_item_ids >= 0
 
     predictions = np.full(
-        len(raw_movie_ids),
-        float(svd_model.trainset.global_mean),
+        movie_ids.size,
+        global_mean + user_bias,
         dtype=np.float64,
-    )
-    predictions += user_bias
-
-    inner_iids = []
-
-    for raw_movie_id in raw_movie_ids:
-        try:
-            inner_iids.append(trainset.to_inner_iid(raw_movie_id))
-        except ValueError:
-            inner_iids.append(None)
-
-    known_mask = np.fromiter(
-        (inner_iid is not None for inner_iid in inner_iids),
-        dtype=bool,
-        count=len(inner_iids),
     )
 
     if known_mask.any():
-        known_inner_iids = np.asarray(
-            [inner_iid for inner_iid in inner_iids if inner_iid is not None],
-            dtype=np.intp,
-        )
+        known_item_ids = inner_item_ids[known_mask]
 
         item_biases = np.asarray(
-            svd_model.bi[known_inner_iids],
+            svd_model.bi[known_item_ids],
             dtype=np.float64,
         )
 
         item_factors = np.asarray(
-            svd_model.qi[known_inner_iids],
+            svd_model.qi[known_item_ids],
             dtype=np.float64,
         )
 
         dot_products = item_factors @ user_factors
 
-        predictions[known_mask] += item_biases + dot_products
+        predictions[known_mask] = global_mean + user_bias + item_biases + dot_products
 
-    return predictions
+    return np.clip(
+        predictions,
+        1.0,
+        5.0,
+    )
