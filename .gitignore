@@ -1,0 +1,58 @@
+# Environment
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+.agents/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+/data/*
+*.parquet
+!/data/.gitkeep
+
+# Generated artifacts
+/artifacts/*
+!/artifacts/.gitkeep
+
+# MLflow experiment tracking
+mlruns/*
+!mlruns/.gitkeep
+
+# Notebook-generated models
+/notebooks/models/
+/.gradio/
+
+# Tests / quality tools
+!tests/fixtures/train.parquet
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# CI runtime fixtures
+.ci-runtime/*
+
+# Logs / OS / editors
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,42 @@
+.git/
+.github/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.gradio/
+.env
+.env.*
+!.env.example
+
+# Dev-only project files
+notebooks/
+tests/
+.ci-runtime/
+.agents/
+.flake8
+mypy.ini
+requirements-dev.txt
+
+# Local experiment outputs
+mlruns/
+
+# Logs / OS / editors
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local data and model outputs; keep directory placeholders for Docker COPY.
+data/*
+!data/.gitkeep
+artifacts/*
+!artifacts/.gitkeep

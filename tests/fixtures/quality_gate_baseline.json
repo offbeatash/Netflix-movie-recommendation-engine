@@ -1,0 +1,4 @@
+{
+  "min_relative_rmse_improvement": 0.015,
+  "min_relative_mae_improvement": 0.03
+}
