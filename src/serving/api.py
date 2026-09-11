@@ -1,6 +1,7 @@
 from src.inference.recommend import generate_genre_recommendations
 import sys
 from pathlib import Path
+from typing import Any
 
 import gradio as gr
 import pandas as pd
@@ -89,13 +90,13 @@ with gr.Blocks() as demo:
     )
 
     with gr.Row():
-        user_id_input = gr.Textbox(
+        user_id_input: Any = gr.Textbox(
             label="Customer ID",
             placeholder="e.g. 2336536",
             scale=3,
         )
 
-        recommend_button = gr.Button(
+        recommend_button: Any = gr.Button(
             "Get Recommendations",
             variant="primary",
             scale=1,
