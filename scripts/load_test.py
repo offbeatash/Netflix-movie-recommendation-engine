@@ -39,7 +39,8 @@ async def main() -> None:
     async with httpx.AsyncClient(timeout=60) as client:
 
         async def request_once() -> None:
-            nonlocal successes, rate_limited, other_http_errors, connect_errors, timeout_errors, request_errors
+            nonlocal successes, rate_limited, other_http_errors, connect_errors
+            nonlocal timeout_errors, request_errors
             async with semaphore:
                 started = time.perf_counter()
                 try:
@@ -57,16 +58,24 @@ async def main() -> None:
                         other_http_errors += 1
                 except httpx.ConnectError:
                     connect_errors += 1
-                    latencies.append(time.perf_counter() - started)  # Still measure time
+                    latencies.append(
+                        time.perf_counter() - started
+                    )  # Still measure time
                 except httpx.TimeoutException:
                     timeout_errors += 1
-                    latencies.append(time.perf_counter() - started)  # Still measure time
+                    latencies.append(
+                        time.perf_counter() - started
+                    )  # Still measure time
                 except httpx.HTTPError:
                     request_errors += 1
-                    latencies.append(time.perf_counter() - started)  # Still measure time
+                    latencies.append(
+                        time.perf_counter() - started
+                    )  # Still measure time
                 except Exception:
                     request_errors += 1
-                    latencies.append(time.perf_counter() - started)  # Still measure time
+                    latencies.append(
+                        time.perf_counter() - started
+                    )  # Still measure time
 
         started = time.perf_counter()
         await asyncio.gather(*(request_once() for _ in range(args.requests)))
@@ -80,7 +89,7 @@ async def main() -> None:
     print(f"requests={args.requests}")
     print(f"concurrency={args.concurrency}")
     if args.rate_limit:
-        print(f"rate_limit_test=true")
+        print("rate_limit_test=true")
     print(f"duration_seconds={elapsed:.3f}")
     print(f"throughput_rps={args.requests / elapsed:.2f}")
     print(f"success_rate={successes / args.requests:.3f}")

@@ -36,14 +36,16 @@ def dataset_version(paths: list[Path]) -> str:
     return digest.hexdigest()[:12]
 
 
-def model_version(params: dict[str, Any], data_version: str, source_paths: list[Path] | None = None) -> str:
+def model_version(
+    params: dict[str, Any], data_version: str, source_paths: list[Path] | None = None
+) -> str:
     payload = {
         "project": PROJECT_VERSION,
         "params": params,
         "data": data_version,
     }
     if source_paths is not None:
-        # Include hash of source files to make version sensitive to implementation changes
+        # Include source-file hashes in the version for implementation changes
         source_hash = _hash_files(source_paths)
         payload["source"] = source_hash
 

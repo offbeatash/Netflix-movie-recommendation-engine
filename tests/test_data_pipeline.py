@@ -210,7 +210,7 @@ def test_enrichment_resumability(tmp_path, monkeypatch):
             "Movie One": "Action",
             "Movie Two": "Comedy",
             "Movie Three": "Drama",
-            "Movie Four": "Unknown"  # Simulate API failure/unknown
+            "Movie Four": "Unknown",  # Simulate API failure/unknown
         }
         return genre_map.get(title, "Unknown")
 
@@ -226,12 +226,12 @@ def test_enrichment_resumability(tmp_path, monkeypatch):
     assert enriched_csv.exists()
 
     # Check that we have results for all movies
-    assert df1.loc[0, "Genre"] == "Action"   # Movie One
-    assert df1.loc[1, "Genre"] == "Comedy"   # Movie Two
-    assert df1.loc[2, "Genre"] == "Drama"    # Movie Three
+    assert df1.loc[0, "Genre"] == "Action"  # Movie One
+    assert df1.loc[1, "Genre"] == "Comedy"  # Movie Two
+    assert df1.loc[2, "Genre"] == "Drama"  # Movie Three
     assert df1.loc[3, "Genre"] == "Unknown"  # Movie Four (mocked as unknown)
 
-    # Second enrichment run - should resume and not re-process successfully enriched movies
+    # Second run should resume without re-processing enriched movies
     # But should retry the "Unknown" one (though our mock will still return Unknown)
     df2 = enrich_genres.process_enrichment()
     assert len(df2) == 4
@@ -249,5 +249,5 @@ def test_enrichment_resumability(tmp_path, monkeypatch):
     df3_result = enrich_genres.process_enrichment()
     assert df3_result.loc[1, "Genre"] == "Comedy"  # Should be filled in
     assert df3_result.loc[0, "Genre"] == "Action"  # Should remain unchanged
-    assert df3_result.loc[2, "Genre"] == "Drama"   # Should remain unchanged
-    assert df3_result.loc[3, "Genre"] == "Unknown" # Should remain unchanged
+    assert df3_result.loc[2, "Genre"] == "Drama"  # Should remain unchanged
+    assert df3_result.loc[3, "Genre"] == "Unknown"  # Should remain unchanged

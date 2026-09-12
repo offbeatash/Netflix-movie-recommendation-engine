@@ -130,8 +130,6 @@ def generate_genre_recommendations(user_id, top_n=1):
         movie_avgs = popularity_artifact["movie_avgs"]
         global_mean = popularity_artifact["global_mean"]
 
-        # Optimize: work with movies_exp directly, avoid copy until needed
-        # Map predictions and fill NaN values
         predicted_ratings = movies_exp["Movie_ID"].map(movie_avgs).fillna(global_mean)
 
         # Create temporary DataFrame for sorting/grouping operations
@@ -148,10 +146,10 @@ def generate_genre_recommendations(user_id, top_n=1):
             .head(1)  # Get top movie per genre
         )
 
-        # Deduplicate by movie title (keeping highest rated version if same movie in multiple genres)
-        deduplicated = top_per_genre.sort_values("predicted_rating", ascending=False).drop_duplicates(
-            subset=["Title"], keep="first"
-        )
+        # Deduplicate by movie title, keeping the highest-rated version.
+        deduplicated = top_per_genre.sort_values(
+            "predicted_rating", ascending=False
+        ).drop_duplicates(subset=["Title"], keep="first")
 
         # Take top N overall
         best_per_genre = deduplicated.head(top_n)
@@ -183,9 +181,7 @@ def generate_genre_recommendations(user_id, top_n=1):
         global_mean = popularity_artifact["global_mean"]
 
         unseen_exp["popularity_rating"] = (
-            unseen_exp["Movie_ID"]
-            .map(movie_avgs)
-            .fillna(global_mean)
+            unseen_exp["Movie_ID"].map(movie_avgs).fillna(global_mean)
         )
 
         svd_alpha = float(
@@ -220,10 +216,10 @@ def generate_genre_recommendations(user_id, top_n=1):
             .head(1)  # Get top movie per genre
         )
 
-        # Deduplicate by movie title (keeping highest rated version if same movie in multiple genres)
-        deduplicated = top_per_genre.sort_values("predicted_rating", ascending=False).drop_duplicates(
-            subset=["Title"], keep="first"
-        )
+        # Deduplicate by movie title, keeping the highest-rated version.
+        deduplicated = top_per_genre.sort_values(
+            "predicted_rating", ascending=False
+        ).drop_duplicates(subset=["Title"], keep="first")
 
         # Take top N overall
         best_per_genre = deduplicated.head(top_n)

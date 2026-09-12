@@ -1,5 +1,3 @@
-"""Offline evaluation: rating prediction and top-N ranking are separate."""
-
 from __future__ import annotations
 
 import gc
@@ -46,6 +44,7 @@ def _load_genres() -> dict[Any, set[str]]:
 
     if not ENRICHED_MOVIES_PATH.exists():
         return {}
+
     movies = pd.read_csv(ENRICHED_MOVIES_PATH, usecols=["Movie_ID", "Genre"])
     return {
         row.Movie_ID: {
@@ -65,15 +64,45 @@ def _popularity_scorer(artifact: dict[str, Any]):
     averages = artifact["movie_avgs"]
     global_mean = float(artifact["global_mean"])
     return lambda _user_id, movie_ids: np.asarray(
-        [averages.get(movie_id, global_mean) for movie_id in movie_ids], dtype=float
+        [averages.get(movie_id, global_mean) for movie_id in movie_ids],
+        dtype=float,
     )
 
 
 def _most_popular_scorer(artifact: dict[str, Any]):
     counts = artifact["movie_counts"]
     return lambda _user_id, movie_ids: np.asarray(
-        [counts.get(movie_id, 0) for movie_id in movie_ids], dtype=float
+        [counts.get(movie_id, 0) for movie_id in movie_ids],
+        dtype=float,
     )
+
+
+def _ensemble_scorer(
+    svd_model: Any,
+    popularity: dict[str, Any],
+    alpha: float,
+):
+    """Create a scorer that blends SVD and popularity predictions."""
+
+    averages = popularity["movie_avgs"]
+    global_mean = float(popularity["global_mean"])
+
+    def score(user_id: Any, movie_ids: np.ndarray) -> np.ndarray:
+        popularity_scores = np.asarray(
+            [averages.get(movie_id, global_mean) for movie_id in movie_ids],
+            dtype=float,
+        )
+        svd_scores = np.asarray(
+            predict_batch(svd_model, user_id, movie_ids),
+            dtype=float,
+        )
+        return np.clip(
+            alpha * svd_scores + (1.0 - alpha) * popularity_scores,
+            1.0,
+            5.0,
+        )
+
+    return score
 
 
 def evaluate_models() -> pd.DataFrame:
@@ -93,6 +122,7 @@ def evaluate_models() -> pd.DataFrame:
 
     svd = get_or_train_svd()
     pred_svd = np.empty(len(test_df), dtype=np.float32)
+
     for start in range(0, len(test_df), 50_000):
         end = min(start + 50_000, len(test_df))
         chunk = test_df.iloc[start:end]
@@ -107,7 +137,11 @@ def evaluate_models() -> pd.DataFrame:
 
     ensemble = json.loads(ENSEMBLE_MODEL_PATH.read_text(encoding="utf-8"))
     alpha = float(ensemble["svd_alpha"])
-    pred_ensemble = np.clip(alpha * pred_svd + (1.0 - alpha) * pred_pop, 1.0, 5.0)
+    pred_ensemble = np.clip(
+        alpha * pred_svd + (1.0 - alpha) * pred_pop,
+        1.0,
+        5.0,
+    )
 
     rating_rows: list[dict[str, float | str]] = []
     for name, prediction in [
@@ -129,26 +163,21 @@ def evaluate_models() -> pd.DataFrame:
     genres = _load_genres()
     ranking_rows: list[dict[str, float | str]] = []
 
-    # Load ensemble weights for ranking evaluation
+    # Load ensemble weights for ranking evaluation.
     ensemble_artifact = json.loads(ENSEMBLE_MODEL_PATH.read_text(encoding="utf-8"))
     alpha = float(ensemble_artifact["svd_alpha"])
-
-    # Create ensemble scorer that works with evaluate_top_n interface
-    def _ensemble_scorer(user_id: Any, movie_ids: np.ndarray) -> np.ndarray:
-        averages = popularity["movie_avgs"]
-        global_mean = float(popularity["global_mean"])
-        popularity_scores = np.asarray(
-            [averages.get(movie_id, global_mean) for movie_id in movie_ids], dtype=float
-        )
-        svd_scores = np.asarray(_svd_scorer(svd)(user_id, movie_ids), dtype=float)
-        return np.clip(alpha * svd_scores + (1.0 - alpha) * popularity_scores, 1.0, 5.0)
 
     ranking_models = {
         "Most Popular": _most_popular_scorer(popularity),
         "Popularity Rating": _popularity_scorer(popularity),
         "SVD": _svd_scorer(svd),
-        "SVD + Popularity (Ensemble)": _ensemble_scorer,
+        "SVD + Popularity (Ensemble)": _ensemble_scorer(
+            svd,
+            popularity,
+            alpha,
+        ),
     }
+
     for name, scorer in ranking_models.items():
         metrics = evaluate_top_n(
             test_df,
@@ -165,6 +194,7 @@ def evaluate_models() -> pd.DataFrame:
 
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+
     with mlflow.start_run():
         mlflow.log_params(
             {
@@ -185,6 +215,7 @@ def evaluate_models() -> pd.DataFrame:
                 "min_ratings_count": MIN_RATINGS_COUNT,
             }
         )
+
         for row in rating_rows:
             model_name = str(row["Model"])
             prefix = model_name.lower().replace(" ", "_").replace("+", "plus")
@@ -194,6 +225,7 @@ def evaluate_models() -> pd.DataFrame:
                     f"rating_{prefix}_mae": float(row["MAE"]),
                 }
             )
+
         for row in ranking_rows:
             model_name = str(row["Model"])
             prefix = model_name.lower().replace(" ", "_")
@@ -210,8 +242,20 @@ def evaluate_models() -> pd.DataFrame:
 
     rating_results = pd.DataFrame(rating_rows)
     ranking_results = pd.DataFrame(ranking_rows)
+
     print("\nRating prediction metrics (temporal test set)")
-    print(rating_results.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
+    print(
+        rating_results.to_string(
+            index=False,
+            float_format=lambda x: f"{x:.4f}",
+        )
+    )
     print("\nRanking metrics (temporal test set, K=10)")
-    print(ranking_results.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
+    print(
+        ranking_results.to_string(
+            index=False,
+            float_format=lambda x: f"{x:.4f}",
+        )
+    )
+
     return rating_results

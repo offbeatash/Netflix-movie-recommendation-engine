@@ -4,11 +4,15 @@ import json
 import numpy as np
 import pandas as pd
 
-from src.config import BASELINE_MODEL_PATH, ENSEMBLE_MODEL_PATH, SVD_MODEL_PATH, VAL_DATA_PATH
+from src.config import (
+    BASELINE_MODEL_PATH,
+    ENSEMBLE_MODEL_PATH,
+    SVD_MODEL_PATH,
+    VAL_DATA_PATH,
+)
 from src.models.popularity import get_or_train_popularity
 from src.models.svd_model import get_or_train_svd
 from src.utils import check_artifact_freshness, save_artifact_metadata
-from src.versioning import _hash_files
 from pathlib import Path
 
 
@@ -16,7 +20,9 @@ def get_or_train_ensemble(force_retrain: bool = False):
     """Tune the SVD/rating-popularity blend on validation data only."""
     params = {"purpose": "validation_rating_blend", "grid_size": 101}
     if not force_retrain and check_artifact_freshness(
-        ENSEMBLE_MODEL_PATH, params, [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH]
+        ENSEMBLE_MODEL_PATH,
+        params,
+        [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH],
     ):
         return json.loads(ENSEMBLE_MODEL_PATH.read_text(encoding="utf-8"))
 
@@ -75,5 +81,10 @@ def get_or_train_ensemble(force_retrain: bool = False):
         Path("src/utils.py"),
         Path("src/config.py"),
     ]
-    save_artifact_metadata(ENSEMBLE_MODEL_PATH, params, [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH], ensemble_source_paths)
+    save_artifact_metadata(
+        ENSEMBLE_MODEL_PATH,
+        params,
+        [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH],
+        ensemble_source_paths,
+    )
     return artifact

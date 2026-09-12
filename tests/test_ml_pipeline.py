@@ -399,8 +399,6 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
     the validation set and popularity does not.
     """
     from src.models import ensemble
-    from src.models import popularity
-    from src.models import svd_model
     import pickle
 
     val_path = tmp_path / "val.parquet"

@@ -14,7 +14,6 @@ from src.config import (
     SVD_REG_ALL,
 )
 from src.utils import check_artifact_freshness, save_artifact_metadata
-from src.versioning import _hash_files
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -110,7 +109,9 @@ def get_or_train_svd(force_retrain=False):
         Path("src/utils.py"),
         Path("src/config.py"),
     ]
-    save_artifact_metadata(SVD_MODEL_PATH, SVD_PARAMS, TRAIN_DATA_PATH, svd_source_paths)
+    save_artifact_metadata(
+        SVD_MODEL_PATH, SVD_PARAMS, TRAIN_DATA_PATH, svd_source_paths
+    )
     print(f"SVD model artifact saved to {SVD_MODEL_PATH}.")
     logger.info("SVD model artifact saved")
 

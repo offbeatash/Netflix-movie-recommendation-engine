@@ -1,10 +1,7 @@
 import json
-import tempfile
-import os
-from pathlib import Path
 
 from src.utils import check_artifact_freshness, save_artifact_metadata
-from src.versioning import model_version, _hash_files
+from src.versioning import model_version
 
 
 def test_artifact_metadata_is_reproducible(tmp_path):
@@ -48,7 +45,9 @@ def test_model_version_includes_source(tmp_path):
 
     # Changing source files should change the version
     source1.write_text("print('hello changed')", encoding="utf-8")
-    version_with_modified_source = model_version(params, data_version, [source1, source2])
+    version_with_modified_source = model_version(
+        params, data_version, [source1, source2]
+    )
     assert version_with_source != version_with_modified_source
 
 
@@ -75,7 +74,9 @@ def test_artifact_freshness_respects_source_changes(tmp_path):
     source_file.write_text("# Modified implementation\nPARAM = 0.6", encoding="utf-8")
 
     # Now the artifact should appear stale due to source change
-    assert not check_artifact_freshness(artifact, params, data, source_paths=[source_file])
+    assert not check_artifact_freshness(
+        artifact, params, data, source_paths=[source_file]
+    )
 
     # But it should still be fresh if we don't check source paths
     assert check_artifact_freshness(artifact, params, data)
@@ -103,4 +104,6 @@ def test_artifact_freshness_ignore_source_when_not_provided(tmp_path):
     assert check_artifact_freshness(artifact, params, data)
 
     # When checking freshness WITH source paths, it should appear stale
-    assert not check_artifact_freshness(artifact, params, data, source_paths=[source_file])
+    assert not check_artifact_freshness(
+        artifact, params, data, source_paths=[source_file]
+    )

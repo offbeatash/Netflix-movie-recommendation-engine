@@ -122,9 +122,7 @@ def process_enrichment():
         movies_df["Movie_ID"] = movies_df["Movie_ID"].astype("int32")
         movies_df["Year"] = pd.to_numeric(movies_df["Year"], errors="coerce")
     else:
-        print(
-            f"Loading raw movie metadata from {MOVIE_TITLES_PATH}..."
-        )
+        print(f"Loading raw movie metadata from {MOVIE_TITLES_PATH}...")
         movies: list[list[str | None]] = []
         with open(MOVIE_TITLES_PATH, encoding="latin-1") as f:
             # Skip header line

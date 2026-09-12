@@ -38,7 +38,9 @@ def process_raw_data():
                     data.append([movie_id, int(customer_id), int(rating), date])
 
         if data:  # Only create DataFrame if we have data
-            chunk_df = pd.DataFrame(data, columns=["Movie_ID", "CustomerID", "Rating", "Date"])
+            chunk_df = pd.DataFrame(
+                data, columns=["Movie_ID", "CustomerID", "Rating", "Date"]
+            )
             chunk_df["Movie_ID"] = chunk_df["Movie_ID"].astype("int32")
             chunk_df["CustomerID"] = chunk_df["CustomerID"].astype("int32")
             chunk_df["Rating"] = chunk_df["Rating"].astype("int8")
