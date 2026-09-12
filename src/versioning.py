@@ -13,41 +13,41 @@ from src.config import PROJECT_VERSION
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
+
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
+
     return digest.hexdigest()
 
 
 def _hash_files(paths: list[Path]) -> str:
-    """Hash multiple files for versioning purposes."""
     digest = hashlib.sha256()
+
     for path in sorted(paths, key=str):
         digest.update(path.name.encode("utf-8"))
         digest.update(sha256_file(path).encode("ascii"))
+
     return digest.hexdigest()
 
 
 def dataset_version(paths: list[Path]) -> str:
-    digest = hashlib.sha256()
-    for path in sorted(paths, key=str):
-        digest.update(path.name.encode("utf-8"))
-        digest.update(sha256_file(path).encode("ascii"))
-    return digest.hexdigest()[:12]
+    return _hash_files(paths)[:12]
 
 
 def model_version(
-    params: dict[str, Any], data_version: str, source_paths: list[Path] | None = None
+    params: dict[str, Any],
+    data_version: str,
+    source_paths: list[Path] | None = None,
 ) -> str:
     payload = {
         "project": PROJECT_VERSION,
         "params": params,
         "data": data_version,
     }
+
     if source_paths is not None:
-        # Include source-file hashes in the version for implementation changes
-        source_hash = _hash_files(source_paths)
-        payload["source"] = source_hash
+        payload["source"] = _hash_files(source_paths)
 
     payload_json = json.dumps(
         payload,
@@ -55,6 +55,7 @@ def model_version(
         separators=(",", ":"),
         default=str,
     )
+
     return hashlib.sha256(payload_json.encode("utf-8")).hexdigest()[:12]
 
 
@@ -67,3 +68,4 @@ def git_commit() -> str | None:
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return None
+    

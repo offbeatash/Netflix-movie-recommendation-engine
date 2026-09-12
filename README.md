@@ -232,7 +232,3 @@ The script reports request count, concurrency, throughput, success rate, mean la
 This is a portfolio-scale recommender system, not a claim of Netflix-scale production readiness. Known limitations include a static historical dataset, local artifact storage, process-local rate limiting, no distributed serving layer, and no production artifact registry. Those concerns are documented rather than hidden behind additional infrastructure.
 
 The current serving model is also deliberately simple: SVD predictions are blended with rating-popularity and popularity is used for cold-start users. A production system would require a continuously refreshed interaction stream, retraining policy, online/offline monitoring, shared rate limiting, durable model storage, and deployment controls.
-
-## Resume-ready description
-
-> Built an end-to-end classical ML movie recommendation engine with temporal-leakage-safe evaluation, Surprise SVD matrix-factorization recommender, implicit ALS offline comparison, top-N ranking metrics, reproducible model/data versioning, CI model-quality gates, asynchronous FastAPI serving, Docker, Prometheus instrumentation, and concurrent load testing.

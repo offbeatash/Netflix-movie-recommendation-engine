@@ -1,0 +1,15 @@
+{
+  "artifact_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "created_at_utc": "2026-09-12T17:14:29Z",
+  "data_hash": "9919b96565ab3bc049474b8253105554175869ec68036d6685827e1d6e2f64f2",
+  "dataset_version": "3861b9b86d77",
+  "git_commit": "2c52d912953fb516ea594f5918d8941ea437890a",
+  "model_version": "93118908d28e",
+  "params": {
+    "alpha": 0.5,
+    "seed": 42
+  },
+  "params_hash": "f427b2bb0a132dab47f7a33021ddc819b3c4ade99b927255d698c704edd6e56a",
+  "project_version": "2.2.0",
+  "source_hash": "53dcb4647774670187b2a2fcec5c0edca27ac011b710657b682528669d232d4d"
+}

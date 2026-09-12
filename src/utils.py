@@ -9,7 +9,7 @@ from typing import Any, Callable, TypeVar, cast
 import psutil
 
 from src.config import PROJECT_VERSION
-from src.versioning import dataset_version, git_commit, model_version, _hash_files
+from src.versioning import _hash_files, dataset_version, git_commit, model_version
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -19,7 +19,12 @@ def _metadata_path(artifact_path: Path | str) -> Path:
 
 
 def _hash_params(params: dict[str, Any]) -> str:
-    payload = json.dumps(params, sort_keys=True, separators=(",", ":"), default=str)
+    payload = json.dumps(
+        params,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -44,34 +49,35 @@ def check_artifact_freshness(
     data_path: Path | str | list[Path | str] | None = None,
     source_paths: list[Path] | None = None,
 ) -> bool:
-    """Check that an artifact was created with the current code inputs."""
+    """Check that an artifact matches its current reproducibility inputs."""
     artifact_path = Path(artifact_path)
     metadata_path = _metadata_path(artifact_path)
+
     if not artifact_path.exists() or not metadata_path.exists():
         return False
 
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+
         if metadata.get("params_hash") != _hash_params(current_params):
             return False
 
         if data_path is not None:
             paths = (
-                [data_path] if isinstance(data_path, (str, Path)) else list(data_path)
+                [data_path]
+                if isinstance(data_path, (str, Path))
+                else list(data_path)
             )
             if metadata.get("data_hash") != _data_hash([Path(p) for p in paths]):
                 return False
 
-        # Check source paths if provided
         if source_paths is not None:
             if metadata.get("source_hash") != _hash_files(source_paths):
                 return False
 
-        # Lightweight integrity check: verify artifact file hasn't been corrupted
         stored_artifact_hash = metadata.get("artifact_hash")
         if stored_artifact_hash is not None:
-            current_artifact_hash = _hash_file(artifact_path)
-            if stored_artifact_hash != current_artifact_hash:
+            if stored_artifact_hash != _hash_file(artifact_path):
                 return False
 
     except (OSError, json.JSONDecodeError, TypeError):
@@ -89,10 +95,13 @@ def save_artifact_metadata(
     """Persist reproducibility metadata beside an artifact."""
     artifact_path = Path(artifact_path)
     metadata_path = _metadata_path(artifact_path)
+
     paths: list[Path] = []
     if data_path is not None:
         raw_paths = (
-            [data_path] if isinstance(data_path, (str, Path)) else list(data_path)
+            [data_path]
+            if isinstance(data_path, (str, Path))
+            else list(data_path)
         )
         paths = [Path(path) for path in raw_paths]
 
@@ -100,8 +109,11 @@ def save_artifact_metadata(
     data_version = dataset_version(paths) if paths else None
     source_hash = _hash_files(source_paths) if source_paths is not None else None
 
-    # Calculate hash of the artifact file itself for integrity checking
-    artifact_hash = _hash_file(artifact_path) if artifact_path.exists() else None
+    artifact_hash = (
+        _hash_file(artifact_path)
+        if artifact_path.exists()
+        else None
+    )
 
     metadata = {
         "project_version": PROJECT_VERSION,
@@ -111,15 +123,22 @@ def save_artifact_metadata(
         "dataset_version": data_version,
         "source_hash": source_hash,
         "model_version": model_version(
-            current_params, data_version or "none", source_paths
+            current_params,
+            data_version or "none",
+            source_paths,
         ),
         "git_commit": git_commit(),
-        "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "created_at_utc": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(),
+        ),
         "artifact_hash": artifact_hash,
     }
+
     temp_path = metadata_path.with_name(f".{metadata_path.name}.tmp")
     temp_path.write_text(
-        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     temp_path.replace(metadata_path)
 
