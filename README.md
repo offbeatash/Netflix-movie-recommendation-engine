@@ -74,6 +74,7 @@ Model artifacts are accompanied by `*.metadata.json` files containing:
 - model version
 - Git commit when available
 - creation timestamp
+- artifact hash (lightweight integrity check)
 
 Run:
 
@@ -82,6 +83,17 @@ make version
 ```
 
 After generating data and training, the metadata files identify the exact input hashes and model configuration used to create each artifact. The local `mlruns/` directory is an experiment-tracking store; it is **not** presented as a production model registry.
+
+## Artifact integrity and security
+
+Model artifacts are stored as pickle files, which can execute arbitrary code when loaded. To ensure safety:
+
+- **Artifact trust boundary**: Model artifacts must be treated as trusted inputs
+- **Application-controlled paths**: Artifact loading only occurs from application-controlled directories (`artifacts/`)
+- **Integrity validation**: Artifact files include lightweight integrity hashes in their metadata to detect accidental corruption
+- **Freshness validation**: Artifact loading includes metadata validation to ensure compatibility with current code and data
+
+**Important**: Never load pickle files from untrusted sources. The application's artifact loading functions (`get_or_train_*`) should be used instead of direct pickle loading to ensure proper validation.
 
 ## Setup
 
@@ -223,4 +235,4 @@ The current serving model is also deliberately simple: SVD predictions are blend
 
 ## Resume-ready description
 
-> Built an end-to-end classical ML movie recommendation engine with temporal-leakage-safe evaluation, SVD collaborative filtering, implicit ALS offline comparison, top-N ranking metrics, reproducible model/data versioning, CI model-quality gates, asynchronous FastAPI serving, Docker, Prometheus instrumentation, and concurrent load testing.
+> Built an end-to-end classical ML movie recommendation engine with temporal-leakage-safe evaluation, Surprise SVD matrix-factorization recommender, implicit ALS offline comparison, top-N ranking metrics, reproducible model/data versioning, CI model-quality gates, asynchronous FastAPI serving, Docker, Prometheus instrumentation, and concurrent load testing.

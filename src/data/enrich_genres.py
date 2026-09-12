@@ -109,31 +109,58 @@ def get_movie_genres(title, year, token, max_retries=3):
 
 
 def process_enrichment():
-    """Main execution function to load, enrich, and save movies."""
+    """Main execution function to load, enrich, and save movies
+    with resumable capability."""
+    # Load existing enrichment data if available
     if ENRICHED_MOVIES_PATH.exists():
+        print(f"Loading existing enrichment data from {ENRICHED_MOVIES_PATH}...")
+        movies_df = pd.read_csv(ENRICHED_MOVIES_PATH)
+        # Ensure required columns exist
+        if "Genre" not in movies_df.columns:
+            movies_df["Genre"] = None
+        # Ensure consistent dtypes with initial dataframe creation
+        movies_df["Movie_ID"] = movies_df["Movie_ID"].astype("int32")
+        movies_df["Year"] = pd.to_numeric(movies_df["Year"], errors="coerce")
+    else:
         print(
-            f"Enriched movies already exist at {ENRICHED_MOVIES_PATH}. "
-            "Skipping API calls."
+            f"Loading raw movie metadata from {MOVIE_TITLES_PATH}..."
         )
-        return pd.read_csv(ENRICHED_MOVIES_PATH)
+        movies: list[list[str | None]] = []
+        with open(MOVIE_TITLES_PATH, encoding="latin-1") as f:
+            # Skip header line
+            f.readline()
+            for line in f:
+                parts = line.strip().split(",", 2)
+                if len(parts) == 3:
+                    movies.append([parts[0], parts[1], parts[2]])
+                elif len(parts) == 2:
+                    movies.append([parts[0], None, parts[1]])
 
-    print(f"Loading raw movie metadata from {MOVIE_TITLES_PATH}...")
-    movies: list[list[str | None]] = []
-    with open(MOVIE_TITLES_PATH, encoding="latin-1") as f:
-        for line in f:
-            parts = line.strip().split(",", 2)
-            if len(parts) == 3:
-                movies.append([parts[0], parts[1], parts[2]])
-            elif len(parts) == 2:
-                movies.append([parts[0], None, parts[1]])
+        movies_df = pd.DataFrame(movies, columns=["Movie_ID", "Year", "Title"])
+        movies_df["Movie_ID"] = movies_df["Movie_ID"].astype("int32")
+        movies_df["Year"] = pd.to_numeric(movies_df["Year"], errors="coerce")
+        movies_df["Genre"] = None
 
-    movies_df = pd.DataFrame(movies, columns=["Movie_ID", "Year", "Title"])
-    movies_df["Movie_ID"] = movies_df["Movie_ID"].astype("int32")
-    movies_df["Year"] = pd.to_numeric(movies_df["Year"], errors="coerce")
-    movies_df["Genre"] = None
+    # Identify movies that still need enrichment
+    # A movie needs enrichment if:
+    # 1. Genre is None/NaN, OR
+    # 2. Genre is "Unknown" (failed previous attempt), OR
+    # 3. Genre is empty string
+    mask = (
+        movies_df["Genre"].isna()
+        | (movies_df["Genre"] == "Unknown")
+        | (movies_df["Genre"] == "")
+    )
+    missing_idx = movies_df[mask].index.tolist()
 
-    missing_idx = movies_df.index.tolist()
-    print(f"Total movies to enrich: {len(missing_idx)}")
+    if len(missing_idx) == 0:
+        print("All movies already enriched. Skipping API calls.")
+        return movies_df
+
+    print(
+        f"Found {len(missing_idx)} movies needing enrichment "
+        f"out of {len(movies_df)} total."
+    )
 
     def fetch_worker(idx):
         title = movies_df.at[idx, "Title"]
@@ -143,7 +170,10 @@ def process_enrichment():
     batch_size = 500
     for start in range(0, len(missing_idx), batch_size):
         batch_indices = missing_idx[start : start + batch_size]
-        print(f"Processing batch {start} to {start + len(batch_indices)}...")
+        print(
+            f"Processing batch {start} to {start + len(batch_indices)} "
+            f"({len(batch_indices)} movies)..."
+        )
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             results = list(
@@ -152,11 +182,17 @@ def process_enrichment():
                 )
             )
 
+        # Update results and handle any failures gracefully
         for idx, genre in results:
             movies_df.at[idx, "Genre"] = genre
 
-        # Save incrementally
+        # Save incrementally after each batch to prevent losing progress
         movies_df.to_csv(ENRICHED_MOVIES_PATH, index=False)
+        print(
+            f"  Batch saved. Progress: "
+            f"{len(movies_df) - len(missing_idx) + start + len(batch_indices)}"
+            f"/{len(movies_df)} movies enriched."
+        )
 
     print(f"Enrichment complete! Saved to {ENRICHED_MOVIES_PATH}")
     return movies_df

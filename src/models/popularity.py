@@ -6,6 +6,8 @@ import pandas as pd
 
 from src.config import BASELINE_MODEL_PATH, MIN_RATINGS_COUNT, TRAIN_DATA_PATH
 from src.utils import check_artifact_freshness, save_artifact_metadata
+from src.versioning import _hash_files
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -37,5 +39,11 @@ def get_or_train_popularity(force_retrain: bool = False) -> dict[str, Any]:
     with temp_path.open("wb") as handle:
         pickle.dump(artifact, handle, protocol=pickle.HIGHEST_PROTOCOL)
     temp_path.replace(BASELINE_MODEL_PATH)
-    save_artifact_metadata(BASELINE_MODEL_PATH, params, TRAIN_DATA_PATH)
+    # Define source files that affect the popularity model artifact
+    popularity_source_paths = [
+        Path("src/models/popularity.py"),
+        Path("src/utils.py"),
+        Path("src/config.py"),
+    ]
+    save_artifact_metadata(BASELINE_MODEL_PATH, params, TRAIN_DATA_PATH, popularity_source_paths)
     return artifact

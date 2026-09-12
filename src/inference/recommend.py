@@ -128,23 +128,33 @@ def generate_genre_recommendations(user_id, top_n=1):
         )
 
         movie_avgs = popularity_artifact["movie_avgs"]
+        global_mean = popularity_artifact["global_mean"]
 
-        user_movies = movies_exp.copy()
+        # Optimize: work with movies_exp directly, avoid copy until needed
+        # Map predictions and fill NaN values
+        predicted_ratings = movies_exp["Movie_ID"].map(movie_avgs).fillna(global_mean)
 
-        user_movies["predicted_rating"] = (
-            user_movies["Movie_ID"]
-            .map(movie_avgs)
-            .fillna(popularity_artifact["global_mean"])
-        )
+        # Create temporary DataFrame for sorting/grouping operations
+        temp_df = movies_exp.copy()
+        temp_df["predicted_rating"] = predicted_ratings.values
 
-        best_per_genre = (
-            user_movies.sort_values(
+        # Get top movie per genre for diversity, then deduplicate and take top_n overall
+        top_per_genre = (
+            temp_df.sort_values(
                 "predicted_rating",
                 ascending=False,
             )
             .groupby("Genre")[["Genre", "Title", "predicted_rating"]]
-            .head(top_n)
+            .head(1)  # Get top movie per genre
         )
+
+        # Deduplicate by movie title (keeping highest rated version if same movie in multiple genres)
+        deduplicated = top_per_genre.sort_values("predicted_rating", ascending=False).drop_duplicates(
+            subset=["Title"], keep="first"
+        )
+
+        # Take top N overall
+        best_per_genre = deduplicated.head(top_n)
 
     # PERSONALIZED
     else:
@@ -157,7 +167,9 @@ def generate_genre_recommendations(user_id, top_n=1):
             set(),
         )
 
-        unseen_exp = movies_exp[~movies_exp["Movie_ID"].isin(seen)].copy()
+        # Optimize: avoid copying movies_exp until we need to add columns
+        mask = ~movies_exp["Movie_ID"].isin(seen)
+        unseen_exp = movies_exp[mask].copy()
 
         svd_model = cache["svd_model"]
 
@@ -168,11 +180,12 @@ def generate_genre_recommendations(user_id, top_n=1):
         )
 
         movie_avgs = popularity_artifact["movie_avgs"]
+        global_mean = popularity_artifact["global_mean"]
 
         unseen_exp["popularity_rating"] = (
             unseen_exp["Movie_ID"]
             .map(movie_avgs)
-            .fillna(popularity_artifact["global_mean"])
+            .fillna(global_mean)
         )
 
         svd_alpha = float(
@@ -197,14 +210,23 @@ def generate_genre_recommendations(user_id, top_n=1):
             + popularity_alpha * unseen_exp["popularity_rating"]
         ).clip(1.0, 5.0)
 
-        best_per_genre = (
+        # Get top movie per genre for diversity, then deduplicate and take top_n overall
+        top_per_genre = (
             unseen_exp.sort_values(
                 "predicted_rating",
                 ascending=False,
             )
             .groupby("Genre")[["Genre", "Title", "predicted_rating"]]
-            .head(top_n)
+            .head(1)  # Get top movie per genre
         )
+
+        # Deduplicate by movie title (keeping highest rated version if same movie in multiple genres)
+        deduplicated = top_per_genre.sort_values("predicted_rating", ascending=False).drop_duplicates(
+            subset=["Title"], keep="first"
+        )
+
+        # Take top N overall
+        best_per_genre = deduplicated.head(top_n)
 
     result = best_per_genre.reset_index(drop=True)
 

@@ -128,10 +128,26 @@ def evaluate_models() -> pd.DataFrame:
     candidate_ids = train_df["Movie_ID"].drop_duplicates().tolist()
     genres = _load_genres()
     ranking_rows: list[dict[str, float | str]] = []
+
+    # Load ensemble weights for ranking evaluation
+    ensemble_artifact = json.loads(ENSEMBLE_MODEL_PATH.read_text(encoding="utf-8"))
+    alpha = float(ensemble_artifact["svd_alpha"])
+
+    # Create ensemble scorer that works with evaluate_top_n interface
+    def _ensemble_scorer(user_id: Any, movie_ids: np.ndarray) -> np.ndarray:
+        averages = popularity["movie_avgs"]
+        global_mean = float(popularity["global_mean"])
+        popularity_scores = np.asarray(
+            [averages.get(movie_id, global_mean) for movie_id in movie_ids], dtype=float
+        )
+        svd_scores = np.asarray(_svd_scorer(svd)(user_id, movie_ids), dtype=float)
+        return np.clip(alpha * svd_scores + (1.0 - alpha) * popularity_scores, 1.0, 5.0)
+
     ranking_models = {
         "Most Popular": _most_popular_scorer(popularity),
         "Popularity Rating": _popularity_scorer(popularity),
         "SVD": _svd_scorer(svd),
+        "SVD + Popularity (Ensemble)": _ensemble_scorer,
     }
     for name, scorer in ranking_models.items():
         metrics = evaluate_top_n(

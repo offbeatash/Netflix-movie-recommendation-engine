@@ -41,6 +41,7 @@ mlruns/*
 # Tests / quality tools
 !tests/fixtures/train.parquet
 .pytest_cache/
+.pytest-tmp/
 .mypy_cache/
 .ruff_cache/
 .coverage

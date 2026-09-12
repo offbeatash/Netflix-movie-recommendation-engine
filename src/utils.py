@@ -9,7 +9,7 @@ from typing import Any, Callable, TypeVar, cast
 import psutil
 
 from src.config import PROJECT_VERSION
-from src.versioning import dataset_version, git_commit, model_version
+from src.versioning import dataset_version, git_commit, model_version, _hash_files
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -42,10 +42,12 @@ def check_artifact_freshness(
     artifact_path: Path | str,
     current_params: dict[str, Any],
     data_path: Path | str | list[Path | str] | None = None,
+    source_paths: list[Path] | None = None,
 ) -> bool:
     """Check that an artifact was created with the current code inputs."""
+    artifact_path = Path(artifact_path)
     metadata_path = _metadata_path(artifact_path)
-    if not Path(artifact_path).exists() or not metadata_path.exists():
+    if not artifact_path.exists() or not metadata_path.exists():
         return False
 
     try:
@@ -59,6 +61,19 @@ def check_artifact_freshness(
             )
             if metadata.get("data_hash") != _data_hash([Path(p) for p in paths]):
                 return False
+
+        # Check source paths if provided
+        if source_paths is not None:
+            if metadata.get("source_hash") != _hash_files(source_paths):
+                return False
+
+        # Lightweight integrity check: verify artifact file hasn't been corrupted
+        stored_artifact_hash = metadata.get("artifact_hash")
+        if stored_artifact_hash is not None:
+            current_artifact_hash = _hash_file(artifact_path)
+            if stored_artifact_hash != current_artifact_hash:
+                return False
+
     except (OSError, json.JSONDecodeError, TypeError):
         return False
 
@@ -69,6 +84,7 @@ def save_artifact_metadata(
     artifact_path: Path | str,
     current_params: dict[str, Any],
     data_path: Path | str | list[Path | str] | None = None,
+    source_paths: list[Path] | None = None,
 ) -> None:
     """Persist reproducibility metadata beside an artifact."""
     artifact_path = Path(artifact_path)
@@ -82,15 +98,24 @@ def save_artifact_metadata(
 
     data_hash = _data_hash(paths) if paths else None
     data_version = dataset_version(paths) if paths else None
+    source_hash = _hash_files(source_paths) if source_paths is not None else None
+
+    # Calculate hash of the artifact file itself for integrity checking
+    artifact_hash = _hash_file(artifact_path) if artifact_path.exists() else None
+
     metadata = {
         "project_version": PROJECT_VERSION,
         "params": current_params,
         "params_hash": _hash_params(current_params),
         "data_hash": data_hash,
         "dataset_version": data_version,
-        "model_version": model_version(current_params, data_version or "none"),
+        "source_hash": source_hash,
+        "model_version": model_version(
+            current_params, data_version or "none", source_paths
+        ),
         "git_commit": git_commit(),
         "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "artifact_hash": artifact_hash,
     }
     temp_path = metadata_path.with_name(f".{metadata_path.name}.tmp")
     temp_path.write_text(

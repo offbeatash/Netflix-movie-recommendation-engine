@@ -13,7 +13,8 @@ def process_raw_data():
 
     print(f"Initiating raw data ingestion from {DATA_DIR}...")
 
-    data = []
+    # Process files incrementally to reduce memory usage
+    dfs = []
     for file_name in [
         "combined_data_1.txt",
         "combined_data_2.txt",
@@ -25,6 +26,7 @@ def process_raw_data():
             continue
 
         print(f"Processing {file_name}...")
+        data = []
         with open(file_path, "r") as f:
             movie_id = None
             for line in f:
@@ -35,25 +37,24 @@ def process_raw_data():
                     customer_id, rating, date = line.split(",")
                     data.append([movie_id, int(customer_id), int(rating), date])
 
-    if not data:
+        if data:  # Only create DataFrame if we have data
+            chunk_df = pd.DataFrame(data, columns=["Movie_ID", "CustomerID", "Rating", "Date"])
+            chunk_df["Movie_ID"] = chunk_df["Movie_ID"].astype("int32")
+            chunk_df["CustomerID"] = chunk_df["CustomerID"].astype("int32")
+            chunk_df["Rating"] = chunk_df["Rating"].astype("int8")
+            chunk_df["Date"] = pd.to_datetime(chunk_df["Date"])
+            dfs.append(chunk_df)
+
+    if not dfs:
         raise FileNotFoundError(
             f"No raw Netflix .txt files found in {DATA_DIR}. "
             "Please ensure they are downloaded."
         )
 
-    print("Converting raw data to DataFrame...")
-    df = pd.DataFrame(data, columns=["Movie_ID", "CustomerID", "Rating", "Date"])
-
-    df["Movie_ID"] = df["Movie_ID"].astype("int32")
-    df["CustomerID"] = df["CustomerID"].astype("int32")
-    df["Rating"] = df["Rating"].astype("int8")
-    df["Date"] = pd.to_datetime(df["Date"])
+    print("Combining processed chunks...")
+    df = pd.concat(dfs, ignore_index=True)
 
     print(f"Saving optimized parquet file to {PROCESSED_DATA_PATH}...")
     PROCESSED_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(PROCESSED_DATA_PATH, index=False)
     print("Ingestion complete!")
-
-
-if __name__ == "__main__":
-    process_raw_data()
