@@ -1,10 +1,14 @@
 FROM python:3.13-slim
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user with a writable home directory
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -m -d /home/appuser appuser
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/home/appuser
 
 COPY requirements.txt .
 RUN python -m pip install --upgrade pip \
@@ -17,8 +21,8 @@ COPY artifacts ./artifacts
 COPY .env.example ./
 
 # Create necessary directories and set permissions
-RUN mkdir -p /app/data /app/artifacts && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/data /app/artifacts /home/appuser && \
+    chown -R appuser:appuser /app /home/appuser
 
 EXPOSE 8000
 
