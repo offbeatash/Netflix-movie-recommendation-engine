@@ -399,9 +399,14 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
     the validation set and popularity does not.
     """
     from src.models import ensemble
+    from src.models import popularity
+    from src.models import svd_model
+    import pickle
 
     val_path = tmp_path / "val.parquet"
     ensemble_path = tmp_path / "ensemble.json"
+    popularity_path = tmp_path / "popularity.pkl"
+    svd_path = tmp_path / "svd_model.pkl"
 
     val = pd.DataFrame(
         {
@@ -414,6 +419,7 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
     )
     val.to_parquet(val_path, index=False)
 
+    # Monkeypatch the imported values in the ensemble module
     monkeypatch.setattr(
         ensemble,
         "VAL_DATA_PATH",
@@ -424,7 +430,18 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
         "ENSEMBLE_MODEL_PATH",
         ensemble_path,
     )
+    monkeypatch.setattr(
+        ensemble,
+        "BASELINE_MODEL_PATH",
+        popularity_path,
+    )
+    monkeypatch.setattr(
+        ensemble,
+        "SVD_MODEL_PATH",
+        svd_path,
+    )
 
+    # Mock the functions in the ensemble module where they are imported and used
     monkeypatch.setattr(
         ensemble,
         "get_or_train_popularity",
@@ -455,6 +472,29 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
         "get_or_train_svd",
         lambda: FakeSVD(),
     )
+
+    # Create the popularity model artifact file with the expected content
+    popularity_artifact = {
+        "global_mean": 1.0,
+        "movie_avgs": {
+            10: 1.0,
+            20: 1.0,
+            30: 1.0,
+        },
+        "movie_counts": {
+            10: 1,
+            20: 1,
+            30: 1,
+        },
+        "most_popular_movie_ids": [10, 20, 30],
+    }
+    with open(popularity_path, "wb") as f:
+        pickle.dump(popularity_artifact, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Create a minimal SVD model artifact file (content doesn't matter for this test)
+    # since we're mocking get_or_train_svd, but the file needs to exist for hashing
+    with open(svd_path, "wb") as f:
+        pickle.dump({}, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     artifact = ensemble.get_or_train_ensemble(force_retrain=True)
 

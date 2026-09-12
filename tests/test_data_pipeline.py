@@ -181,3 +181,73 @@ def test_temporal_split_and_train_only_activity_filtering(tmp_path, monkeypatch)
 
     # Movie 1 has >=50 ratings during training and therefore remains.
     assert 1 in train["Movie_ID"].unique()
+
+
+def test_enrichment_resumability(tmp_path, monkeypatch):
+    """Test that genre enrichment can resume from partial state."""
+    from src.data import enrich_genres
+
+    # Create temporary paths
+    movies_csv = tmp_path / "movie_titles.csv"
+    enriched_csv = tmp_path / "movies_with_genres.csv"
+
+    # Create test movie data
+    movies_data = """Movie_ID,Year,Title
+1,2000,Movie One
+2,2001,Movie Two
+3,2002,Movie Three
+4,2003,Movie Four
+"""
+    movies_csv.write_text(movies_data, encoding="utf-8")
+
+    # Mock TMDB API key
+    monkeypatch.setattr(enrich_genres, "TMDB_API_KEY", "fake-token-for-testing")
+
+    # Mock the get_movie_genres function to return deterministic results
+    def mock_get_movie_genres(title, year, token):
+        # Return known genres for our test movies
+        genre_map = {
+            "Movie One": "Action",
+            "Movie Two": "Comedy",
+            "Movie Three": "Drama",
+            "Movie Four": "Unknown"  # Simulate API failure/unknown
+        }
+        return genre_map.get(title, "Unknown")
+
+    monkeypatch.setattr(enrich_genres, "get_movie_genres", mock_get_movie_genres)
+
+    # Mock the paths
+    monkeypatch.setattr(enrich_genres, "MOVIE_TITLES_PATH", movies_csv)
+    monkeypatch.setattr(enrich_genres, "ENRICHED_MOVIES_PATH", enriched_csv)
+
+    # First enrichment run - process all movies
+    df1 = enrich_genres.process_enrichment()
+    assert len(df1) == 4
+    assert enriched_csv.exists()
+
+    # Check that we have results for all movies
+    assert df1.loc[0, "Genre"] == "Action"   # Movie One
+    assert df1.loc[1, "Genre"] == "Comedy"   # Movie Two
+    assert df1.loc[2, "Genre"] == "Drama"    # Movie Three
+    assert df1.loc[3, "Genre"] == "Unknown"  # Movie Four (mocked as unknown)
+
+    # Second enrichment run - should resume and not re-process successfully enriched movies
+    # But should retry the "Unknown" one (though our mock will still return Unknown)
+    df2 = enrich_genres.process_enrichment()
+    assert len(df2) == 4
+
+    # Results should be identical (resume behavior)
+    assert df1.equals(df2)
+
+    # Now let's test true resumability by manually setting some genres to None
+    # and see if it fills them in
+    df3 = df2.copy()
+    df3.loc[1, "Genre"] = None  # Reset Movie Two to None
+    df3.to_csv(enriched_csv, index=False)
+
+    # Third run should fill in the missing genre for Movie Two
+    df3_result = enrich_genres.process_enrichment()
+    assert df3_result.loc[1, "Genre"] == "Comedy"  # Should be filled in
+    assert df3_result.loc[0, "Genre"] == "Action"  # Should remain unchanged
+    assert df3_result.loc[2, "Genre"] == "Drama"   # Should remain unchanged
+    assert df3_result.loc[3, "Genre"] == "Unknown" # Should remain unchanged
