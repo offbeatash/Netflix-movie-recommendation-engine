@@ -13,6 +13,7 @@ from src.config import (
     BASELINE_MODEL_PATH,
     CORS_ALLOW_ORIGINS,
     ENRICHED_MOVIES_PATH,
+    ENSEMBLE_MODEL_PATH,
     RATE_LIMIT_REQUESTS,
     RATE_LIMIT_WINDOW_SECONDS,
     SVD_MODEL_PATH,
@@ -63,6 +64,7 @@ REQUIRED_RUNTIME_PATHS = (
     ("movie_metadata", ENRICHED_MOVIES_PATH),
     ("popularity_model", BASELINE_MODEL_PATH),
     ("svd_model", SVD_MODEL_PATH),
+    ("ensemble_weights", ENSEMBLE_MODEL_PATH),
 )
 
 
@@ -173,3 +175,4 @@ async def get_recommendations(request: RecommendationRequest, http_request: Requ
         raise HTTPException(
             status_code=500, detail="An internal inference error occurred."
         ) from exc
+    

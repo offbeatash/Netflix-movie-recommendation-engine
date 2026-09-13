@@ -27,7 +27,8 @@ def test_health_endpoint():
 
 def test_ready_endpoint_reports_missing_runtime_files(tmp_path, monkeypatch):
     missing_paths = tuple(
-        (name, tmp_path / name) for name in ("train", "movies", "popularity", "svd")
+        (name, tmp_path / name)
+        for name in ("train", "movies", "popularity", "svd", "ensemble")
     )
     monkeypatch.setattr(fastapi_app, "REQUIRED_RUNTIME_PATHS", missing_paths)
 
@@ -39,7 +40,7 @@ def test_ready_endpoint_reports_missing_runtime_files(tmp_path, monkeypatch):
 
 def test_ready_endpoint_reports_available_runtime_files(tmp_path, monkeypatch):
     runtime_paths = []
-    for name in ("train", "movies", "popularity", "svd"):
+    for name in ("train", "movies", "popularity", "svd", "ensemble"):
         path = tmp_path / name
         path.touch()
         runtime_paths.append((name, path))

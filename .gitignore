@@ -42,6 +42,7 @@ mlruns/*
 !tests/fixtures/train.parquet
 .pytest_cache/
 .pytest-tmp/
+.pytest_tmp/
 .mypy_cache/
 .ruff_cache/
 .coverage
