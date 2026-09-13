@@ -17,9 +17,7 @@ def test_artifact_metadata_is_reproducible(tmp_path):
 
     assert check_artifact_freshness(artifact, params, data)
 
-    metadata = json.loads(
-        (tmp_path / "model.pkl.metadata.json").read_text()
-    )
+    metadata = json.loads((tmp_path / "model.pkl.metadata.json").read_text())
 
     assert metadata["dataset_version"]
     assert metadata["model_version"]
@@ -200,4 +198,3 @@ def test_als_source_dependencies():
         "src/utils.py",
         "src/config.py",
     }
-    

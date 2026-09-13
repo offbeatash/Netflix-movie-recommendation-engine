@@ -175,4 +175,3 @@ async def get_recommendations(request: RecommendationRequest, http_request: Requ
         raise HTTPException(
             status_code=500, detail="An internal inference error occurred."
         ) from exc
-    

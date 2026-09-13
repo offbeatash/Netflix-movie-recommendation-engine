@@ -64,9 +64,7 @@ def check_artifact_freshness(
 
         if data_path is not None:
             paths = (
-                [data_path]
-                if isinstance(data_path, (str, Path))
-                else list(data_path)
+                [data_path] if isinstance(data_path, (str, Path)) else list(data_path)
             )
             if metadata.get("data_hash") != _data_hash([Path(p) for p in paths]):
                 return False
@@ -99,9 +97,7 @@ def save_artifact_metadata(
     paths: list[Path] = []
     if data_path is not None:
         raw_paths = (
-            [data_path]
-            if isinstance(data_path, (str, Path))
-            else list(data_path)
+            [data_path] if isinstance(data_path, (str, Path)) else list(data_path)
         )
         paths = [Path(path) for path in raw_paths]
 
@@ -109,11 +105,7 @@ def save_artifact_metadata(
     data_version = dataset_version(paths) if paths else None
     source_hash = _hash_files(source_paths) if source_paths is not None else None
 
-    artifact_hash = (
-        _hash_file(artifact_path)
-        if artifact_path.exists()
-        else None
-    )
+    artifact_hash = _hash_file(artifact_path) if artifact_path.exists() else None
 
     metadata = {
         "project_version": PROJECT_VERSION,

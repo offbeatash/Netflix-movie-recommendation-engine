@@ -49,10 +49,13 @@ ALS_SOURCE_PATHS = [
 def get_or_train_als(force_retrain: bool = False):
     """Load the existing ALS model or train a new one if necessary."""
 
-    if not force_retrain and ALS_MODEL_PATH.exists():
-        return implicit.cpu.als.AlternatingLeastSquares.load(
-            str(ALS_MODEL_PATH)
-        )
+    if not force_retrain and check_artifact_freshness(
+        ALS_MODEL_PATH,
+        ALS_PARAMS,
+        TRAIN_DATA_PATH,
+        source_paths=ALS_SOURCE_PATHS,
+    ):
+        return implicit.cpu.als.AlternatingLeastSquares.load(str(ALS_MODEL_PATH))
 
     train_df = pd.read_parquet(
         TRAIN_DATA_PATH,
@@ -79,9 +82,7 @@ def get_or_train_als(force_retrain: bool = False):
     n_movies = int(all_indices["movie_idx"].max()) + 1
 
     confidence = (
-        1.0
-        + ALS_CONFIDENCE_ALPHA
-        * (train_df["Rating"].astype("float32") / 5.0)
+        1.0 + ALS_CONFIDENCE_ALPHA * (train_df["Rating"].astype("float32") / 5.0)
     ).astype("float32")
 
     matrix = csr_matrix(

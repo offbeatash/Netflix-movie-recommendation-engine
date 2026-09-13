@@ -77,10 +77,7 @@ def _popularity_scorer(artifact: dict[str, Any]):
     global_mean = float(artifact["global_mean"])
 
     return lambda _user_id, movie_ids: np.asarray(
-        [
-            averages.get(movie_id, global_mean)
-            for movie_id in movie_ids
-        ],
+        [averages.get(movie_id, global_mean) for movie_id in movie_ids],
         dtype=float,
     )
 
@@ -89,10 +86,7 @@ def _most_popular_scorer(artifact: dict[str, Any]):
     counts = artifact["movie_counts"]
 
     return lambda _user_id, movie_ids: np.asarray(
-        [
-            counts.get(movie_id, 0)
-            for movie_id in movie_ids
-        ],
+        [counts.get(movie_id, 0) for movie_id in movie_ids],
         dtype=float,
     )
 
@@ -112,10 +106,7 @@ def _ensemble_scorer(
         movie_ids: np.ndarray,
     ) -> np.ndarray:
         popularity_scores = np.asarray(
-            [
-                averages.get(movie_id, global_mean)
-                for movie_id in movie_ids
-            ],
+            [averages.get(movie_id, global_mean) for movie_id in movie_ids],
             dtype=float,
         )
 
@@ -129,8 +120,7 @@ def _ensemble_scorer(
         )
 
         return np.clip(
-            alpha * svd_scores
-            + (1.0 - alpha) * popularity_scores,
+            alpha * svd_scores + (1.0 - alpha) * popularity_scores,
             1.0,
             5.0,
         )
@@ -163,10 +153,7 @@ def _als_scorer(
             )
 
         item_indices = np.asarray(
-            [
-                movie_to_idx.get(movie_id, -1)
-                for movie_id in movie_ids
-            ],
+            [movie_to_idx.get(movie_id, -1) for movie_id in movie_ids],
             dtype=int,
         )
 
@@ -181,9 +168,7 @@ def _als_scorer(
         if np.any(valid):
             scores[valid] = (
                 als_model.user_factors[user_idx]
-                @ als_model.item_factors[
-                    item_indices[valid]
-                ].T
+                @ als_model.item_factors[item_indices[valid]].T
             )
 
         return scores
@@ -240,10 +225,7 @@ def evaluate_models(
             )
         )
 
-        pred_svd[start:end] = [
-            prediction.est
-            for prediction in svd.test(testset)
-        ]
+        pred_svd[start:end] = [prediction.est for prediction in svd.test(testset)]
 
     ensemble = json.loads(
         ENSEMBLE_MODEL_PATH.read_text(
@@ -251,13 +233,10 @@ def evaluate_models(
         )
     )
 
-    alpha = float(
-        ensemble["svd_alpha"]
-    )
+    alpha = float(ensemble["svd_alpha"])
 
     pred_ensemble = np.clip(
-        alpha * pred_svd
-        + (1.0 - alpha) * pred_pop,
+        alpha * pred_svd + (1.0 - alpha) * pred_pop,
         1.0,
         5.0,
     )
@@ -285,37 +264,27 @@ def evaluate_models(
 
     # Ranking evaluation
 
-    candidate_ids = (
-        train_df["Movie_ID"]
-        .drop_duplicates()
-        .tolist()
-    )
+    candidate_ids = train_df["Movie_ID"].drop_duplicates().tolist()
 
     genres = _load_genres()
 
     ranking_rows: list[dict[str, float | str]] = []
 
-    user_mapping = (
-        pd.concat(
-            [
-                train_df[["CustomerID", "user_idx"]],
-                test_df[["CustomerID", "user_idx"]],
-            ],
-            ignore_index=True,
-        )
-        .drop_duplicates("CustomerID")
-    )
+    user_mapping = pd.concat(
+        [
+            train_df[["CustomerID", "user_idx"]],
+            test_df[["CustomerID", "user_idx"]],
+        ],
+        ignore_index=True,
+    ).drop_duplicates("CustomerID")
 
-    movie_mapping = (
-        pd.concat(
-            [
-                train_df[["Movie_ID", "movie_idx"]],
-                test_df[["Movie_ID", "movie_idx"]],
-            ],
-            ignore_index=True,
-        )
-        .drop_duplicates("Movie_ID")
-    )
+    movie_mapping = pd.concat(
+        [
+            train_df[["Movie_ID", "movie_idx"]],
+            test_df[["Movie_ID", "movie_idx"]],
+        ],
+        ignore_index=True,
+    ).drop_duplicates("Movie_ID")
 
     user_to_idx = dict(
         zip(
@@ -381,13 +350,9 @@ def evaluate_models(
 
     # MLflow logging
     if log_mlflow:
-        mlflow.set_tracking_uri(
-            MLFLOW_TRACKING_URI
-        )
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
-        mlflow.set_experiment(
-            MLFLOW_EXPERIMENT_NAME
-        )
+        mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
         with mlflow.start_run():
 
@@ -414,21 +379,12 @@ def evaluate_models(
             for row in rating_rows:
                 model_name = str(row["Model"])
 
-                prefix = (
-                    model_name
-                    .lower()
-                    .replace(" ", "_")
-                    .replace("+", "plus")
-                )
+                prefix = model_name.lower().replace(" ", "_").replace("+", "plus")
 
                 mlflow.log_metrics(
                     {
-                        f"rating_{prefix}_rmse": float(
-                            row["RMSE"]
-                        ),
-                        f"rating_{prefix}_mae": float(
-                            row["MAE"]
-                        ),
+                        f"rating_{prefix}_rmse": float(row["RMSE"]),
+                        f"rating_{prefix}_mae": float(row["MAE"]),
                     }
                 )
 
@@ -436,8 +392,7 @@ def evaluate_models(
                 model_name = str(row["Model"])
 
                 prefix = (
-                    model_name
-                    .lower()
+                    model_name.lower()
                     .replace(" ", "_")
                     .replace("+", "plus")
                     .replace("(", "")
@@ -446,9 +401,7 @@ def evaluate_models(
 
                 mlflow.log_metrics(
                     {
-                        f"ranking_{prefix}_{key.replace('@', '_')}": float(
-                            value
-                        )
+                        f"ranking_{prefix}_{key.replace('@', '_')}": float(value)
                         for key, value in row.items()
                         if key != "Model"
                     }
@@ -456,18 +409,11 @@ def evaluate_models(
 
     # Results
 
-    rating_results = pd.DataFrame(
-        rating_rows
-    )
+    rating_results = pd.DataFrame(rating_rows)
 
-    ranking_results = pd.DataFrame(
-        ranking_rows
-    )
+    ranking_results = pd.DataFrame(ranking_rows)
 
-    print(
-        "\nRating prediction metrics "
-        "(temporal test set)"
-    )
+    print("\nRating prediction metrics " "(temporal test set)")
 
     print(
         rating_results.to_string(
@@ -476,10 +422,7 @@ def evaluate_models(
         )
     )
 
-    print(
-        "\nRanking metrics "
-        "(temporal test set, K=10)"
-    )
+    print("\nRanking metrics " "(temporal test set, K=10)")
 
     print(
         ranking_results.to_string(

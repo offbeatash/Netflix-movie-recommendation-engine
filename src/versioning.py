@@ -68,4 +68,3 @@ def git_commit() -> str | None:
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return None
-    

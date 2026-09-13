@@ -56,9 +56,7 @@ CORS_ALLOW_ORIGINS = tuple(
 )
 
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "60"))
-RATE_LIMIT_WINDOW_SECONDS = int(
-    os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")
-)
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)

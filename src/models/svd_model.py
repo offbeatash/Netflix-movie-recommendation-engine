@@ -68,8 +68,7 @@ def get_or_train_svd(force_retrain=False):
         except Exception as e:
             logger.error("Failed to load saved SVD model: %s", e)
             raise RuntimeError(
-                f"Failed to load existing SVD model from "
-                f"{SVD_MODEL_PATH}: {e}"
+                f"Failed to load existing SVD model from " f"{SVD_MODEL_PATH}: {e}"
             ) from e
 
     # TRAIN NEW MODEL
@@ -115,10 +114,7 @@ def get_or_train_svd(force_retrain=False):
     del train_df, data
     gc.collect()
 
-    print(
-        f"Training SVD model "
-        f"(factors={SVD_N_FACTORS}, epochs={SVD_N_EPOCHS})..."
-    )
+    print(f"Training SVD model " f"(factors={SVD_N_FACTORS}, epochs={SVD_N_EPOCHS})...")
     logger.info("Training SVD model")
 
     svd_model = SVD(
@@ -246,9 +242,7 @@ def predict_batch(svd_model, user_id, movie_ids):
 
     global_mean = float(trainset.global_mean)
 
-    user_bias = float(
-        svd_model.bu[inner_uid]
-    )
+    user_bias = float(svd_model.bu[inner_uid])
 
     user_factors = np.asarray(
         svd_model.pu[inner_uid],
@@ -259,9 +253,7 @@ def predict_batch(svd_model, user_id, movie_ids):
 
     for movie_id in movie_ids:
         try:
-            inner_item_id_list.append(
-                trainset.to_inner_iid(str(movie_id))
-            )
+            inner_item_id_list.append(trainset.to_inner_iid(str(movie_id)))
 
         except ValueError:
             inner_item_id_list.append(-1)
@@ -294,12 +286,7 @@ def predict_batch(svd_model, user_id, movie_ids):
 
         dot_products = item_factors @ user_factors
 
-        predictions[known_mask] = (
-            global_mean
-            + user_bias
-            + item_biases
-            + dot_products
-        )
+        predictions[known_mask] = global_mean + user_bias + item_biases + dot_products
 
     return np.clip(
         predictions,
