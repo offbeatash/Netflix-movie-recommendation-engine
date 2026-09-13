@@ -6,6 +6,10 @@ from pathlib import Path
 import pandas as pd
 from surprise import Dataset, Reader, SVD
 
+from src.models.popularity import POPULARITY_SOURCE_PATHS
+from src.models.svd_model import SVD_SOURCE_PATHS
+from src.utils import save_artifact_metadata
+
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
 RUNTIME_DIR = ROOT / ".ci-runtime"
@@ -145,14 +149,16 @@ def create_runtime():
             protocol=pickle.HIGHEST_PROTOCOL,
         )
 
-    # Generate metadata using the same versioning implementation as production.
-    from src.utils import save_artifact_metadata
-
+    # Generate metadata using the same versioning implementation as
+    # production, including the source-file hashes used by freshness
+    # validation.
     save_artifact_metadata(
         ARTIFACTS_DIR / "popularity_model.pkl",
         {"min_ratings_count": 500},
         DATA_DIR / "train.parquet",
+        source_paths=POPULARITY_SOURCE_PATHS,
     )
+
     save_artifact_metadata(
         svd_model_path,
         {
@@ -163,6 +169,7 @@ def create_runtime():
             "random_state": RANDOM_STATE,
         },
         DATA_DIR / "train.parquet",
+        source_paths=SVD_SOURCE_PATHS,
     )
 
     # ------------------------------------------------------------------
