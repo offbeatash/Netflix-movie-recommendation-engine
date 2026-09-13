@@ -47,18 +47,12 @@ ALS_SOURCE_PATHS = [
 
 
 def get_or_train_als(force_retrain: bool = False):
-    """Train ALS on binary implicit interactions derived from training ratings.
+    """Load the existing ALS model or train a new one if necessary."""
 
-    ALS is an offline ranking comparison only; it is not used for explicit-rating
-    RMSE/MAE claims or in the serving path.
-    """
-    if not force_retrain and check_artifact_freshness(
-        ALS_MODEL_PATH,
-        ALS_PARAMS,
-        TRAIN_DATA_PATH,
-        source_paths=ALS_SOURCE_PATHS,
-    ):
-        return implicit.cpu.als.AlternatingLeastSquares.load(str(ALS_MODEL_PATH))
+    if not force_retrain and ALS_MODEL_PATH.exists():
+        return implicit.cpu.als.AlternatingLeastSquares.load(
+            str(ALS_MODEL_PATH)
+        )
 
     train_df = pd.read_parquet(
         TRAIN_DATA_PATH,
