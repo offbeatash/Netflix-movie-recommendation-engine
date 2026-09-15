@@ -1,6 +1,5 @@
 import gc
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,24 +15,22 @@ from src.models.svd_model import get_or_train_svd
 from src.utils import check_artifact_freshness, save_artifact_metadata
 
 
-ENSEMBLE_SOURCE_PATHS = [
-    Path("src/models/ensemble.py"),
-    Path("src/models/popularity.py"),
-    Path("src/models/svd_model.py"),
-    Path("src/utils.py"),
-    Path("src/config.py"),
-]
+ENSEMBLE_TRAINING_VERSION = "1"
 
 
 def get_or_train_ensemble(force_retrain: bool = False):
     """Tune the SVD/rating-popularity blend on validation data only."""
-    params = {"purpose": "validation_rating_blend", "grid_size": 101}
+
+    params = {
+        "purpose": "validation_rating_blend",
+        "grid_size": 101,
+        "training_version": ENSEMBLE_TRAINING_VERSION,
+    }
 
     if not force_retrain and check_artifact_freshness(
         ENSEMBLE_MODEL_PATH,
         params,
         [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH],
-        source_paths=ENSEMBLE_SOURCE_PATHS,
     ):
         return json.loads(ENSEMBLE_MODEL_PATH.read_text(encoding="utf-8"))
 
@@ -109,7 +106,6 @@ def get_or_train_ensemble(force_retrain: bool = False):
         ENSEMBLE_MODEL_PATH,
         params,
         [VAL_DATA_PATH, BASELINE_MODEL_PATH, SVD_MODEL_PATH],
-        ENSEMBLE_SOURCE_PATHS,
     )
 
     return artifact

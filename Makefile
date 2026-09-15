@@ -27,20 +27,20 @@ quality-gate:
 version:
 	$(PYTHON) scripts/run_version.py
 
-load-test:
-	$(PYTHON) scripts/load_test.py
-
 serve-gradio:
 	$(PYTHON) src/serving/api.py
-
-serve-api:
-	$(PYTHON) -m uvicorn src.serving.fastapi_app:app --host 0.0.0.0 --port 8000
 
 docker-build:
 	docker build -t netflix-recommender .
 
 docker-run:
 	docker run --rm -p 8000:8000 --env-file .env -v $(PWD)/data:/app/data:ro -v $(PWD)/artifacts:/app/artifacts:ro netflix-recommender
+
+load-test:
+	$(PYTHON) scripts/load_test.py
+
+serve-api:
+	$(PYTHON) -m uvicorn src.serving.fastapi_app:app --host 0.0.0.0 --port 8000
 
 test:
 	$(PYTHON) -m pytest tests/ -v

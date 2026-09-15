@@ -12,7 +12,7 @@ import httpx
 
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", default="http://localhost:8000/recommend")
+    parser.add_argument("--url", default="http://127.0.0.1:8000/recommend")
     parser.add_argument("--requests", type=int, default=100)
     parser.add_argument("--concurrency", type=int, default=10)
     parser.add_argument("--user-id", default="1")

@@ -23,7 +23,7 @@ ALS_MODEL_PATH = ARTIFACTS_DIR / "als_model.npz"
 SVD_MODEL_PATH = ARTIFACTS_DIR / "svd_model.pkl"
 ENSEMBLE_MODEL_PATH = ARTIFACTS_DIR / "ensemble_weights.json"
 
-MLFLOW_TRACKING_URI = str(BASE_DIR / "mlruns")
+MLFLOW_TRACKING_URI = f"sqlite:///{BASE_DIR / 'mlflow.db'}"
 MLFLOW_EXPERIMENT_NAME = "netflix-recommendation-evaluation"
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")

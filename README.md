@@ -107,6 +107,13 @@ Model artifacts are stored as pickle files, which can execute arbitrary code whe
 - **Integrity validation**: Artifact files include lightweight integrity hashes in their metadata to detect accidental corruption
 - **Freshness validation**: Artifact loading includes metadata validation to ensure compatibility with current code and data
 
+Download the required files from the following Google Drive folder:
+
+[Dataset & Artifacts — Google Drive](https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing)
+
+After downloading, place the data files in data folder and artifact files in artifacts folder in root directory structure described below.
+
+> **Note:** The repository intentionally excludes large raw data and trained model artifacts from Git.
 **Important**: Never load pickle files from untrusted sources. The application's artifact loading functions (`get_or_train_*`) should be used instead of direct pickle loading to ensure proper validation.
 
 ## Setup
@@ -118,6 +125,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
+python -m pip install -e .
 cp .env.example .env
 ```
 
@@ -126,11 +134,13 @@ Set `TMDB_API_KEY` only when genre enrichment needs to query TMDb.
 ## Pipeline
 
 ```bash
-make ingest
-make enrich
-make split
-make train
-make evaluate
+make ingest or python scripts/run_ingest.py
+make enrich or python scripts/run_enrich_genres.py
+make split or python scripts/run_build_features.py
+make train or python scripts/run_train.py
+make evaluate or python scripts/run_evaluate.py
+make quality-gate or python scripts/run_quality_gate.py
+make version or python scripts/run_version.py
 ```
 
 Or:
@@ -143,10 +153,18 @@ The raw Netflix files are not committed because of their size. The repository al
 
 ## Serving
 
+Gradio remains available locally:
+
+```bash
+make serve-gradio
+```
+
+It does not create a public share URL by default.
+
 Local FastAPI:
 
 ```bash
-make serve-api
+make serve-api or python src/serving/api.py
 ```
 
 Then open `/docs` or call:
@@ -161,30 +179,9 @@ Set `API_KEY` in `.env` to require `X-API-Key` authentication. `CORS_ALLOW_ORIGI
 
 For local development the API key can remain unset. For multi-worker or distributed deployment, the process-local limiter should be replaced with shared infrastructure; that is deliberately outside this portfolio project's scope.
 
-Gradio remains available locally:
 
-```bash
-make serve-gradio
-```
 
-It does not create a public share URL by default.
 
-## Docker
-
-Build:
-
-```bash
-make docker-build
-```
-
-Run:
-
-```bash
-cp .env.example .env
-make docker-run
-```
-
-The service expects prepared `data/` and `artifacts/` directories. CI creates a small deterministic runtime fixture and exercises `/health`, `/ready`, and authenticated `/recommend`.
 
 ## CI and quality gate
 

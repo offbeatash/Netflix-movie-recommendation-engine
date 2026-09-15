@@ -1,7 +1,6 @@
 import gc
 import logging
 import os
-from pathlib import Path
 
 import pandas as pd
 from scipy.sparse import csr_matrix
@@ -29,6 +28,7 @@ os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 logger = logging.getLogger(__name__)
 
+ALS_TRAINING_VERSION = "1"
 
 ALS_PARAMS = {
     "factors": ALS_FACTORS,
@@ -36,14 +36,8 @@ ALS_PARAMS = {
     "regularization": ALS_REGULARIZATION,
     "confidence_alpha": ALS_CONFIDENCE_ALPHA,
     "random_state": RANDOM_STATE,
+    "training_version": ALS_TRAINING_VERSION,
 }
-
-
-ALS_SOURCE_PATHS = [
-    Path("src/models/als_model.py"),
-    Path("src/utils.py"),
-    Path("src/config.py"),
-]
 
 
 def get_or_train_als(force_retrain: bool = False):
@@ -53,7 +47,6 @@ def get_or_train_als(force_retrain: bool = False):
         ALS_MODEL_PATH,
         ALS_PARAMS,
         TRAIN_DATA_PATH,
-        source_paths=ALS_SOURCE_PATHS,
     ):
         return implicit.cpu.als.AlternatingLeastSquares.load(str(ALS_MODEL_PATH))
 
@@ -114,7 +107,6 @@ def get_or_train_als(force_retrain: bool = False):
         ALS_MODEL_PATH,
         ALS_PARAMS,
         TRAIN_DATA_PATH,
-        ALS_SOURCE_PATHS,
     )
 
     del train_df, all_indices, dimension_frames, matrix

@@ -2,7 +2,6 @@ import gc
 import ctypes
 import logging
 import pickle
-from pathlib import Path
 
 import pandas as pd
 from surprise import SVD, Dataset, Reader
@@ -20,6 +19,7 @@ from src.utils import check_artifact_freshness, save_artifact_metadata
 
 logger = logging.getLogger(__name__)
 
+SVD_TRAINING_VERSION = "1"
 
 SVD_PARAMS = {
     "n_factors": SVD_N_FACTORS,
@@ -27,15 +27,8 @@ SVD_PARAMS = {
     "lr_all": SVD_LR_ALL,
     "reg_all": SVD_REG_ALL,
     "random_state": RANDOM_STATE,
+    "training_version": SVD_TRAINING_VERSION,
 }
-
-
-# Source files used when creating a new SVD artifact.
-SVD_SOURCE_PATHS = [
-    Path("src/models/svd_model.py"),
-    Path("src/utils.py"),
-    Path("src/config.py"),
-]
 
 
 def get_or_train_svd(force_retrain=False):
@@ -56,7 +49,6 @@ def get_or_train_svd(force_retrain=False):
         SVD_MODEL_PATH,
         SVD_PARAMS,
         TRAIN_DATA_PATH,
-        source_paths=SVD_SOURCE_PATHS,
     ):
         print(f"Fresh SVD model found at {SVD_MODEL_PATH}. Loading...")
         logger.info("Fresh SVD model found; loading")
@@ -183,7 +175,6 @@ def get_or_train_svd(force_retrain=False):
         SVD_MODEL_PATH,
         SVD_PARAMS,
         TRAIN_DATA_PATH,
-        SVD_SOURCE_PATHS,
     )
 
     print(f"SVD model artifact saved to {SVD_MODEL_PATH}.")

@@ -33,6 +33,9 @@ dist/
 # MLflow experiment tracking
 mlruns/*
 !mlruns/.gitkeep
+mlflow.db
+mlflow.db-shm
+mlflow.db-wal
 
 # Notebook-generated models
 /notebooks/models/

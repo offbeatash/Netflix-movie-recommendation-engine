@@ -17,7 +17,9 @@ def test_artifact_metadata_is_reproducible(tmp_path):
 
     assert check_artifact_freshness(artifact, params, data)
 
-    metadata = json.loads((tmp_path / "model.pkl.metadata.json").read_text())
+    metadata = json.loads(
+        (tmp_path / "model.pkl.metadata.json").read_text(encoding="utf-8")
+    )
 
     assert metadata["dataset_version"]
     assert metadata["model_version"]
@@ -148,53 +150,3 @@ def test_artifact_freshness_ignore_source_when_not_provided(tmp_path):
         data,
         source_paths=[source_file],
     )
-
-
-def test_svd_source_dependencies():
-    from src.models.svd_model import SVD_SOURCE_PATHS
-
-    source_names = {path.as_posix() for path in SVD_SOURCE_PATHS}
-
-    assert source_names == {
-        "src/models/svd_model.py",
-        "src/utils.py",
-        "src/config.py",
-    }
-
-
-def test_popularity_source_dependencies():
-    from src.models.popularity import POPULARITY_SOURCE_PATHS
-
-    source_names = {path.as_posix() for path in POPULARITY_SOURCE_PATHS}
-
-    assert source_names == {
-        "src/models/popularity.py",
-        "src/utils.py",
-        "src/config.py",
-    }
-
-
-def test_ensemble_source_dependencies():
-    from src.models.ensemble import ENSEMBLE_SOURCE_PATHS
-
-    source_names = {path.as_posix() for path in ENSEMBLE_SOURCE_PATHS}
-
-    assert source_names == {
-        "src/models/ensemble.py",
-        "src/models/popularity.py",
-        "src/models/svd_model.py",
-        "src/utils.py",
-        "src/config.py",
-    }
-
-
-def test_als_source_dependencies():
-    from src.models.als_model import ALS_SOURCE_PATHS
-
-    source_names = {path.as_posix() for path in ALS_SOURCE_PATHS}
-
-    assert source_names == {
-        "src/models/als_model.py",
-        "src/utils.py",
-        "src/config.py",
-    }

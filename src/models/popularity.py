@@ -1,6 +1,5 @@
 import logging
 import pickle
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -10,26 +9,26 @@ from src.utils import check_artifact_freshness, save_artifact_metadata
 
 logger = logging.getLogger(__name__)
 
-
-POPULARITY_SOURCE_PATHS = [
-    Path("src/models/popularity.py"),
-    Path("src/utils.py"),
-    Path("src/config.py"),
-]
+POPULARITY_TRAINING_VERSION = "1"
 
 
 def get_or_train_popularity(force_retrain: bool = False) -> dict[str, Any]:
     """Train/load rating baseline and most-popular ranking statistics."""
-    params = {"min_ratings_count": MIN_RATINGS_COUNT}
+
+    params = {
+        "min_ratings_count": MIN_RATINGS_COUNT,
+        "training_version": POPULARITY_TRAINING_VERSION,
+    }
 
     if not force_retrain and check_artifact_freshness(
         BASELINE_MODEL_PATH,
         params,
         TRAIN_DATA_PATH,
-        source_paths=POPULARITY_SOURCE_PATHS,
     ):
         with BASELINE_MODEL_PATH.open("rb") as handle:
             return pickle.load(handle)
+
+    logger.info("Training popularity baseline...")
 
     train_df = pd.read_parquet(
         TRAIN_DATA_PATH,
@@ -67,7 +66,8 @@ def get_or_train_popularity(force_retrain: bool = False) -> dict[str, Any]:
         BASELINE_MODEL_PATH,
         params,
         TRAIN_DATA_PATH,
-        POPULARITY_SOURCE_PATHS,
     )
+
+    logger.info("Popularity baseline training complete.")
 
     return artifact
