@@ -6,8 +6,6 @@ from pathlib import Path
 import pandas as pd
 from surprise import Dataset, Reader, SVD
 
-from src.models.popularity import POPULARITY_SOURCE_PATHS
-from src.models.svd_model import SVD_SOURCE_PATHS
 from src.utils import save_artifact_metadata
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -156,7 +154,6 @@ def create_runtime():
         ARTIFACTS_DIR / "popularity_model.pkl",
         {"min_ratings_count": 500},
         DATA_DIR / "train.parquet",
-        source_paths=POPULARITY_SOURCE_PATHS,
     )
 
     save_artifact_metadata(
@@ -169,7 +166,6 @@ def create_runtime():
             "random_state": RANDOM_STATE,
         },
         DATA_DIR / "train.parquet",
-        source_paths=SVD_SOURCE_PATHS,
     )
 
     # ------------------------------------------------------------------
