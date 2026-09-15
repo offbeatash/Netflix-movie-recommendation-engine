@@ -122,15 +122,18 @@ def test_personalized_user_contract():
     # Get movies seen by this user in training
     seen_movies = set(train_df.loc[train_df["CustomerID"] == user_id, "Movie_ID"])
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(str(user_id))
-    ), patch(
-        "src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch(
+            "src.inference.recommend.get_or_train_svd",
+            return_value=FakeSVD(str(user_id)),
+        ),
+        patch("src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path),
     ):
 
         # Test various top_n values
@@ -177,13 +180,14 @@ def test_cold_start_user_contract():
     """Test complete recommendation contract for cold-start users."""
     recommend._CACHE.clear()
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd"
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch("src.inference.recommend.get_or_train_svd"),
     ):
 
         # Test with definitely unknown user
@@ -222,15 +226,18 @@ def test_recommendation_count_respected():
     train_df = pd.read_parquet(FIXTURE_TRAIN)
     user_id = train_df["CustomerID"].iloc[0]
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(str(user_id))
-    ), patch(
-        "src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch(
+            "src.inference.recommend.get_or_train_svd",
+            return_value=FakeSVD(str(user_id)),
+        ),
+        patch("src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path),
     ):
 
         msg, df = generate_genre_recommendations(user_id=str(user_id), top_n=2)
@@ -255,15 +262,18 @@ def test_no_duplicate_recommendations():
     movies_df = pd.read_csv(FIXTURE_MOVIES)
     user_id = train_df["CustomerID"].iloc[0]
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(str(user_id))
-    ), patch(
-        "src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch(
+            "src.inference.recommend.get_or_train_svd",
+            return_value=FakeSVD(str(user_id)),
+        ),
+        patch("src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path),
     ):
 
         msg, df = generate_genre_recommendations(user_id=str(user_id), top_n=10)
@@ -292,15 +302,18 @@ def test_genre_information_validity():
     movies_df = pd.read_csv(FIXTURE_MOVIES)
     user_id = train_df["CustomerID"].iloc[0]
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(str(user_id))
-    ), patch(
-        "src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch(
+            "src.inference.recommend.get_or_train_svd",
+            return_value=FakeSVD(str(user_id)),
+        ),
+        patch("src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path),
     ):
 
         msg, df = generate_genre_recommendations(user_id=str(user_id), top_n=5)

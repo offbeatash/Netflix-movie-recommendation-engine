@@ -1,2 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netflix-movie-recommendation-engine"
+version = "2.2.0"
+description = "A classical collaborative-filtering movie recommendation system with reproducible ML artifacts and production-oriented serving."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]

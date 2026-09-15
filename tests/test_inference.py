@@ -21,13 +21,14 @@ def mock_popularity():
 
 
 def test_cold_start_fallback():
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd"
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch("src.inference.recommend.get_or_train_svd"),
     ):
 
         msg, df = generate_genre_recommendations(
@@ -39,13 +40,14 @@ def test_cold_start_fallback():
 
 
 def test_prediction_sanity_bounds():
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd"
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch("src.inference.recommend.get_or_train_svd"),
     ):
 
         _, df = generate_genre_recommendations(user_id="UNKNOWN_123", top_n=10)
@@ -55,13 +57,14 @@ def test_prediction_sanity_bounds():
 
 
 def test_data_schema_types():
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd"
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch("src.inference.recommend.get_or_train_svd"),
     ):
 
         _, df = generate_genre_recommendations(user_id="UNKNOWN_123", top_n=1)

@@ -95,15 +95,17 @@ def test_known_user_recommendation(tmp_path):
 
     seen_movie = train_df.loc[train_df["CustomerID"] == user_id, "Movie_ID"].iloc[0]
 
-    with patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN), patch(
-        "src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES
-    ), patch(
-        "src.inference.recommend.get_or_train_popularity",
-        return_value=mock_popularity(),
-    ), patch(
-        "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(user_id)
-    ), patch(
-        "src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path
+    with (
+        patch("src.inference.recommend.TRAIN_DATA_PATH", FIXTURE_TRAIN),
+        patch("src.inference.recommend.ENRICHED_MOVIES_PATH", FIXTURE_MOVIES),
+        patch(
+            "src.inference.recommend.get_or_train_popularity",
+            return_value=mock_popularity(),
+        ),
+        patch(
+            "src.inference.recommend.get_or_train_svd", return_value=FakeSVD(user_id)
+        ),
+        patch("src.inference.recommend.ENSEMBLE_MODEL_PATH", ensemble_path),
     ):
 
         msg, df = recommend.generate_genre_recommendations(user_id=user_id, top_n=1)

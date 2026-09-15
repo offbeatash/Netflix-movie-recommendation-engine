@@ -1,8 +1,10 @@
 # Netflix Movie Recommendation Engine — 2.2
+[![CI](https://github.com/offbeatash/Netflix-movie-recommendation-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/offbeatash/Netflix-movie-recommendation-engine/actions/workflows/ci.yml)
 
 A classical collaborative-filtering recommendation system built around the Netflix Prize ratings dataset. The project focuses on **temporal-leakage-safe offline evaluation, efficient SVD inference, ranking evaluation, reproducible artifacts, CI quality gates, and lightweight API serving**.
 
 No LLM, RAG, generative AI, vector database, or other unrelated AI component is used.
+> **Production scope:** The API's inference cache and rate limiter are process-local and do not persist or synchronize across multiple workers or instances. This project is designed for single-process/local deployment; distributed caching and rate limiting are intentionally outside its scope.
 
 ## Architecture
 
