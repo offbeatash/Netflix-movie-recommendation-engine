@@ -4,6 +4,7 @@ import httpx
 import pandas as pd
 
 from src.serving import fastapi_app
+from src.inference import recommend
 
 
 def request(method, path, **kwargs):
@@ -146,6 +147,21 @@ def test_recommend_offloads_sync_inference(monkeypatch):
 
 def test_api_key_protection(monkeypatch):
     monkeypatch.setattr(fastapi_app, "API_KEY", "secret")
+    recommend._CACHE.clear()
+
+    results = pd.DataFrame(
+        {
+            "Genre": ["Drama"],
+            "Movie Title": ["Example"],
+            "Predicted Rating": [4.0],
+        }
+    )
+    monkeypatch.setattr(
+        fastapi_app,
+        "generate_genre_recommendations",
+        lambda user_id, top_n: ("Showing personalized results.", results),
+    )
+
     missing = request("POST", "/recommend", json={"user_id": "1", "top_n": 1})
     valid = request(
         "POST",
@@ -153,6 +169,6 @@ def test_api_key_protection(monkeypatch):
         headers={"X-API-Key": "secret"},
         json={"user_id": "1", "top_n": 1},
     )
+
     assert missing.status_code == 401
-    assert valid.status_code != 401
-    monkeypatch.setattr(fastapi_app, "API_KEY", None)
+    assert valid.status_code == 200

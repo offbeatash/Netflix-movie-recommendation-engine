@@ -1,62 +1,113 @@
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from src.config import DATA_DIR, PROCESSED_DATA_PATH
 
 
+RAW_FILE = "combined_data_1.txt"
+BATCH_SIZE = 100_000
+
+
+def _write_batch(data, writer):
+    """Convert one bounded batch of ratings to Parquet."""
+    if not data:
+        return writer
+
+    chunk_df = pd.DataFrame(
+        data,
+        columns=["Movie_ID", "CustomerID", "Rating", "Date"],
+    )
+
+    chunk_df["Movie_ID"] = chunk_df["Movie_ID"].astype("int32")
+    chunk_df["CustomerID"] = chunk_df["CustomerID"].astype("int32")
+    chunk_df["Rating"] = chunk_df["Rating"].astype("int8")
+    chunk_df["Date"] = pd.to_datetime(chunk_df["Date"])
+
+    table = pa.Table.from_pandas(
+        chunk_df,
+        preserve_index=False,
+    )
+
+    if writer is None:
+        writer = pq.ParquetWriter(
+            PROCESSED_DATA_PATH,
+            table.schema,
+        )
+
+    writer.write_table(table)
+
+    return writer
+
+
 def process_raw_data():
-    """Parses raw Netflix text files into a single optimized Parquet file."""
+    """Streams the raw Netflix ratings file into an optimized Parquet file."""
 
     if PROCESSED_DATA_PATH.exists():
         print(
-            f"Data already ingested at {PROCESSED_DATA_PATH}. Skipping ingestion phase."
+            f"Data already ingested at {PROCESSED_DATA_PATH}. "
+            "Skipping ingestion phase."
         )
         return
 
-    print(f"Initiating raw data ingestion from {DATA_DIR}...")
+    file_path = DATA_DIR / RAW_FILE
 
-    # Process files incrementally to reduce memory usage
-    dfs = []
-    for file_name in [
-        "combined_data_1.txt",
-        "combined_data_2.txt",
-        "combined_data_3.txt",
-        "combined_data_4.txt",
-    ]:
-        file_path = DATA_DIR / file_name
-        if not file_path.exists():
-            continue
-
-        print(f"Processing {file_name}...")
-        data = []
-        with open(file_path, "r") as f:
-            movie_id = None
-            for line in f:
-                line = line.strip()
-                if line.endswith(":"):
-                    movie_id = int(line[:-1])
-                else:
-                    customer_id, rating, date = line.split(",")
-                    data.append([movie_id, int(customer_id), int(rating), date])
-
-        if data:  # Only create DataFrame if we have data
-            chunk_df = pd.DataFrame(
-                data, columns=["Movie_ID", "CustomerID", "Rating", "Date"]
-            )
-            chunk_df["Movie_ID"] = chunk_df["Movie_ID"].astype("int32")
-            chunk_df["CustomerID"] = chunk_df["CustomerID"].astype("int32")
-            chunk_df["Rating"] = chunk_df["Rating"].astype("int8")
-            chunk_df["Date"] = pd.to_datetime(chunk_df["Date"])
-            dfs.append(chunk_df)
-
-    if not dfs:
+    if not file_path.exists():
         raise FileNotFoundError(
-            f"No raw Netflix .txt files found in {DATA_DIR}. "
-            "Please ensure they are downloaded."
+            f"No raw Netflix file found at {file_path}. "
+            "Please ensure it is downloaded."
         )
 
-    print("Combining processed chunks...")
-    df = pd.concat(dfs, ignore_index=True)
+    print(f"Initiating raw data ingestion from {file_path}...")
 
-    print(f"Saving optimized parquet file to {PROCESSED_DATA_PATH}...")
     PROCESSED_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(PROCESSED_DATA_PATH, index=False)
-    print("Ingestion complete!")
+
+    writer = None
+    data = []
+    total_rows = 0
+    movie_id = None
+
+    try:
+        with open(file_path, "r", encoding="latin-1") as f:
+            for line in f:
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                if line.endswith(":"):
+                    movie_id = int(line[:-1])
+                    continue
+
+                customer_id, rating, date = line.split(",")
+
+                data.append(
+                    [
+                        movie_id,
+                        int(customer_id),
+                        int(rating),
+                        date,
+                    ]
+                )
+
+                if len(data) >= BATCH_SIZE:
+                    writer = _write_batch(data, writer)
+                    total_rows += len(data)
+                    data.clear()
+
+        if data:
+            writer = _write_batch(data, writer)
+            total_rows += len(data)
+            data.clear()
+
+        if writer is None:
+            raise ValueError(f"No rating records found in {file_path}.")
+
+        print(
+            f"Ingestion complete! Wrote {total_rows:,} rows "
+            f"to {PROCESSED_DATA_PATH}."
+        )
+
+    finally:
+        if writer is not None:
+            writer.close()

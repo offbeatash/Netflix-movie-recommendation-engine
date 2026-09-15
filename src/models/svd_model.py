@@ -16,7 +16,7 @@ from src.config import (
     SVD_LR_ALL,
     SVD_REG_ALL,
 )
-from src.utils import save_artifact_metadata
+from src.utils import check_artifact_freshness, save_artifact_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +40,26 @@ SVD_SOURCE_PATHS = [
 
 def get_or_train_svd(force_retrain=False):
     """
-    Load the existing SVD model artifact when available.
+    Load the existing SVD model artifact when it is fresh.
 
-    Training only occurs when:
-    1. The artifact does not exist, or
-    2. force_retrain=True is explicitly requested.
+    Training occurs when:
+    1. The artifact does not exist,
+    2. The artifact metadata is stale, or
+    3. force_retrain=True is explicitly requested.
 
-    This prevents deployment/evaluation environments from unnecessarily
-    retraining the large SVD model because of source-file timestamps,
-    metadata differences, or regenerated Parquet files.
+    Freshness is validated against model parameters, training data,
+    source files, and artifact integrity.
     """
 
-    # LOAD EXISTING MODEL
-    if SVD_MODEL_PATH.exists() and not force_retrain:
-        print(f"Saved SVD model found at {SVD_MODEL_PATH}. Loading...")
-        logger.info("Saved SVD model found; loading")
+    # LOAD EXISTING MODEL IF FRESH
+    if not force_retrain and check_artifact_freshness(
+        SVD_MODEL_PATH,
+        SVD_PARAMS,
+        TRAIN_DATA_PATH,
+        source_paths=SVD_SOURCE_PATHS,
+    ):
+        print(f"Fresh SVD model found at {SVD_MODEL_PATH}. Loading...")
+        logger.info("Fresh SVD model found; loading")
 
         try:
             with open(SVD_MODEL_PATH, "rb") as f:
@@ -68,13 +73,16 @@ def get_or_train_svd(force_retrain=False):
         except Exception as e:
             logger.error("Failed to load saved SVD model: %s", e)
             raise RuntimeError(
-                f"Failed to load existing SVD model from " f"{SVD_MODEL_PATH}: {e}"
+                f"Failed to load existing SVD model from {SVD_MODEL_PATH}: {e}"
             ) from e
 
     # TRAIN NEW MODEL
     if force_retrain:
         print("Forced SVD retraining requested.")
         logger.info("Forced SVD retraining requested")
+    elif SVD_MODEL_PATH.exists():
+        print("Existing SVD model is stale. Starting retraining pipeline.")
+        logger.info("Existing SVD model is stale; starting retraining pipeline")
     else:
         print("No saved SVD model found. Starting training pipeline.")
         logger.info("No saved SVD model found; starting training pipeline")

@@ -48,17 +48,29 @@ flowchart LR
 
 ## Evaluation methodology
 
+
 ### Rating prediction
 
 RMSE and MAE are measured on the chronological held-out test period. Models evaluated in this category are the global mean, rating-popularity baseline, SVD, and the SVD/popularity blend.
 
+Inactive/cold users and movies are filtered out of the validation and test sets before evaluation. Therefore, the reported RMSE and MAE represent **warm-start performance** and should not be interpreted as cold-start performance.
+
 ### Ranking
 
-For ranking evaluation, a test interaction with `Rating >= 4` is treated as relevant. Candidates come only from the training catalog, items already seen by the user in training are removed, and deterministic sampled negatives are added. Metrics are averaged over users with at least one eligible relevant test item.
+For ranking evaluation, a test interaction with `Rating >= 4` is treated as relevant. Candidates come only from the training catalog. Items already seen by the user in training and relevant test items are excluded from the sampled-negative pool, and deterministic sampled negatives are added. This means sampled negatives may include items the user rated poorly during the test period; this is a standard sampled-negative approximation rather than a strict "unseen items" evaluation. Metrics are averaged over users with at least one eligible relevant test item.
 
 The **Most Popular** baseline ranks movies by training-period interaction count. Catalog coverage measures the fraction of the candidate catalog that appears in evaluated recommendation lists. Genre diversity is an average pairwise Jaccard-distance complement over recommendation genres.
 
 This methodology does not use validation/test interactions to define the training catalog or activity filters.
+
+### Rating thresholds
+
+The pipeline uses two different rating-count thresholds for different purposes:
+
+- `MIN_RATINGS_COUNT=500` is the popularity-model qualification threshold. It determines which movies have enough training-period ratings to be considered qualified by the popularity baseline.
+- `min_movie_rating=50` is the catalog-activity threshold used during feature construction. It determines which movies have sufficient activity for inclusion in the constructed catalog/features.
+
+These thresholds are intentionally different because they serve different pipeline stages and purposes.
 
 ## ALS rationale
 
@@ -97,7 +109,7 @@ Model artifacts are stored as pickle files, which can execute arbitrary code whe
 
 ## Setup
 
-Python 3.11–3.13 is the primary tested range. The full Netflix pipeline is memory-intensive; 16 GB RAM is a practical minimum for working with the complete dataset.
+Python 3.10–3.14 is the primary tested range. The full Netflix pipeline is memory-intensive; 16 GB RAM is a practical minimum for working with the complete dataset.
 
 ```bash
 python -m venv .venv

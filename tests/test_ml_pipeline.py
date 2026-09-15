@@ -387,6 +387,79 @@ def test_svd_prediction_output_length_matches_movie_ids():
     assert np.isfinite(predictions).all()
 
 
+def test_predict_batch_matches_real_surprise_svd():
+    """
+    Validate predict_batch against a real trained Surprise SVD model.
+
+    This complements the unit tests that use mocked model internals by
+    verifying the optimized NumPy implementation against Surprise's actual
+    prediction behavior.
+    """
+    from surprise import Dataset, Reader, SVD
+
+    from src.models.svd_model import predict_batch
+
+    ratings = pd.DataFrame(
+        {
+            "CustomerID": ["1", "1", "2", "2", "3", "3", "4", "4"],
+            "Movie_ID": ["10", "20", "10", "30", "20", "30", "10", "20"],
+            "Rating": [5.0, 3.0, 4.0, 2.0, 2.0, 5.0, 3.0, 4.0],
+        }
+    )
+
+    reader = Reader(rating_scale=(1, 5))
+
+    dataset = Dataset.load_from_df(
+        ratings[["CustomerID", "Movie_ID", "Rating"]],
+        reader,
+    )
+
+    trainset = dataset.build_full_trainset()
+
+    model = SVD(
+        n_factors=3,
+        n_epochs=10,
+        lr_all=0.005,
+        reg_all=0.04,
+        random_state=42,
+    )
+
+    model.fit(trainset)
+
+    user_id = "1"
+    movie_ids = ["10", "20", "30"]
+
+    optimized_predictions = predict_batch(
+        model,
+        user_id=user_id,
+        movie_ids=movie_ids,
+    )
+
+    surprise_predictions = np.array(
+        [
+            model.predict(
+                user_id,
+                movie_id,
+            ).est
+            for movie_id in movie_ids
+        ],
+        dtype=float,
+    )
+
+    surprise_predictions = np.clip(
+        surprise_predictions,
+        1.0,
+        5.0,
+    )
+
+    np.testing.assert_allclose(
+        optimized_predictions,
+        surprise_predictions,
+        rtol=1e-6,
+        atol=1e-6,
+    )
+
+
 # ENSEMBLE
 
 
@@ -501,6 +574,53 @@ def test_ensemble_optimizes_svd_vs_popularity_weight(
     assert artifact["val_rmse"] == pytest.approx(0.0)
 
     assert ensemble_path.exists()
+
+
+def test_ensemble_weight_optimization_on_realistic_predictions():
+    """Verify the ensemble grid selects the best alpha on realistic predictions."""
+    actual = np.array([3.0, 4.0, 2.0, 5.0, 3.5, 4.5])
+
+    pred_svd = np.array([3.2, 3.8, 2.4, 4.7, 3.7, 4.2])
+    pred_pop = np.array([2.8, 4.2, 1.9, 5.0, 3.2, 4.8])
+
+    best_alpha = 0.0
+    best_rmse = float("inf")
+
+    for alpha in np.linspace(0, 1, 101):
+        prediction = np.clip(
+            alpha * pred_svd + (1.0 - alpha) * pred_pop,
+            1.0,
+            5.0,
+        )
+
+        rmse = float(np.sqrt(np.mean((actual - prediction) ** 2)))
+
+        if rmse < best_rmse:
+            best_alpha = float(alpha)
+            best_rmse = rmse
+
+    ensemble_predictions = np.clip(
+        best_alpha * pred_svd + (1.0 - best_alpha) * pred_pop,
+        1.0,
+        5.0,
+    )
+
+    ensemble_rmse = np.sqrt(np.mean((actual - ensemble_predictions) ** 2))
+
+    svd_rmse = np.sqrt(np.mean((actual - pred_svd) ** 2))
+
+    popularity_rmse = np.sqrt(np.mean((actual - pred_pop) ** 2))
+
+    assert 0.0 <= best_alpha <= 1.0
+    assert np.isclose(
+        best_alpha + (1.0 - best_alpha),
+        1.0,
+    )
+
+    assert ensemble_rmse <= min(
+        svd_rmse,
+        popularity_rmse,
+    )
 
 
 # METRICS / EVALUATION

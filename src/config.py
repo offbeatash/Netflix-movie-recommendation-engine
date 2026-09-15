@@ -11,11 +11,9 @@ PROJECT_VERSION = "2.2.0"
 DATA_DIR = BASE_DIR / "data"
 ARTIFACTS_DIR = BASE_DIR / "artifacts"
 
-RAW_DATA_PATH = DATA_DIR / "combined_data_1.txt"
 MOVIE_TITLES_PATH = DATA_DIR / "movie_titles.csv"
 ENRICHED_MOVIES_PATH = DATA_DIR / "movies_with_genres.csv"
 PROCESSED_DATA_PATH = DATA_DIR / "processed_netflix.parquet"
-DB_PATH = DATA_DIR / "movies.db"
 TRAIN_DATA_PATH = DATA_DIR / "train.parquet"
 VAL_DATA_PATH = DATA_DIR / "val.parquet"
 TEST_DATA_PATH = DATA_DIR / "test.parquet"
@@ -35,6 +33,9 @@ MIN_RATINGS_COUNT = 500
 TRAIN_SPLIT_QUANTILE = 0.80
 VAL_SPLIT_QUANTILE = 0.90
 RANDOM_STATE = 42
+
+MIN_USER_RATING = 10
+MIN_MOVIE_RATING = 50
 
 SVD_N_FACTORS = 50
 SVD_N_EPOCHS = 20

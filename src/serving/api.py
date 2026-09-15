@@ -38,7 +38,7 @@ def interface_wrapper(user_id_str):
         # top_n=5 gives enough candidates to build the Top 10 section.
         status_msg, genre_df = generate_genre_recommendations(
             user_id,
-            top_n=5,
+            top_n=20,
         )
 
         # Build a clean Top 10 unique-movie list.

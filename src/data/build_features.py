@@ -8,6 +8,8 @@ from src.config import (
     TEST_DATA_PATH,
     TRAIN_SPLIT_QUANTILE,
     VAL_SPLIT_QUANTILE,
+    MIN_USER_RATING,
+    MIN_MOVIE_RATING,
 )
 
 
@@ -53,15 +55,13 @@ def create_splits():
     print(
         "Filtering inactive users and movies strictly based on the training period..."
     )
-    min_user_rating = 10
-    min_movie_rating = 50
 
     train_period_df = df[df["Date"] <= q80]
     user_counts = train_period_df.groupby("CustomerID").size()
     movie_counts = train_period_df.groupby("Movie_ID").size()
 
-    active_users = user_counts[user_counts >= min_user_rating].index
-    active_movies = movie_counts[movie_counts >= min_movie_rating].index
+    active_users = user_counts[user_counts >= MIN_USER_RATING].index
+    active_movies = movie_counts[movie_counts >= MIN_MOVIE_RATING].index
 
     df_model = df[
         df["CustomerID"].isin(active_users) & df["Movie_ID"].isin(active_movies)
