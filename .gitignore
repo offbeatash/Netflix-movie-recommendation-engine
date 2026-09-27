@@ -64,3 +64,4 @@ Thumbs.db
 
 # Hugging Face deployment staging
 hf-space/
+requirements-hf.txt

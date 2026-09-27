@@ -1,206 +1,683 @@
 # Netflix Movie Recommendation Engine — 2.2
+
 [![CI](https://github.com/offbeatash/Netflix-movie-recommendation-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/offbeatash/Netflix-movie-recommendation-engine/actions/workflows/ci.yml)
 
-A classical collaborative-filtering recommendation system built around the Netflix Prize ratings dataset. The project focuses on **temporal-leakage-safe offline evaluation, efficient SVD inference, ranking evaluation, reproducible artifacts, CI quality gates, and lightweight API serving**.
+> A production-oriented movie recommendation system built on the Netflix Prize ratings dataset, combining **SVD collaborative filtering, popularity-based cold-start recommendations, ranking evaluation, MLflow experiment tracking, automated CI, Docker, FastAPI, and Hugging Face deployment.**
 
-No LLM, RAG, generative AI, vector database, or other unrelated AI component is used.
-> **Production scope:** The API's inference cache and rate limiter are process-local and do not persist or synchronize across multiple workers or instances. This project is designed for single-process/local deployment; distributed caching and rate limiting are intentionally outside its scope.
+### 🚀 Live Demo
+
+**Try the deployed recommendation engine:**
+https://huggingface.co/spaces/offbeat-ash/netflix-recommendation-engine
+
+The public demo uses pretrained model artifacts and does not retrain the recommendation model at runtime.
+
+---
+
+## Overview
+
+This project takes a classical recommendation-system approach and builds it into a complete ML engineering pipeline.
+
+The system covers the workflow from raw historical ratings to model training, offline evaluation, artifact versioning, API serving, testing, containerization, and public deployment.
+
+The primary serving model is an **SVD collaborative-filtering model blended with a rating-popularity baseline**. Popularity-based recommendations provide a fallback for cold-start users.
+
+The project intentionally focuses on **classical recommender-system engineering rather than LLM/RAG-based recommendations**.
+
+### What the system demonstrates
+
+* Collaborative filtering with matrix-factorization-based SVD
+* Popularity and rating-popularity baselines
+* Cold-start handling
+* Chronological, leakage-safe evaluation
+* Rating prediction and top-N ranking evaluation
+* Deterministic negative sampling
+* Model/artifact versioning and integrity validation
+* MLflow experiment tracking
+* FastAPI model serving
+* Gradio interface
+* Dockerized deployment
+* Prometheus metrics
+* Automated CI quality gates
+* Concurrent API load testing
+* Hugging Face deployment using pretrained artifacts
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Netflix ratings] --> B[Ingestion]
-    M[Movie titles + TMDb] --> C[Genre enrichment]
-    B --> D[Chronological split]
-    C --> E[Movie metadata]
-    D --> F[Train / validation / test]
-    F --> G[Popularity baseline]
+    A[Netflix Ratings] --> B[Ingestion]
+    M[Movie Titles + TMDb] --> C[Genre Enrichment]
+
+    B --> D[Chronological Split]
+    C --> E[Movie Metadata]
+
+    D --> F[Train / Validation / Test]
+
+    F --> G[Popularity Baseline]
     F --> H[SVD]
-    F --> I[Implicit ALS offline comparison]
-    F --> J[Validation ensemble tuning]
-    G --> K[Offline ranking + rating evaluation]
+    F --> I[Implicit ALS Offline Comparison]
+
+    F --> J[Validation Ensemble Tuning]
+
+    G --> K[Offline Evaluation]
     H --> K
     I --> K
     J --> K
-    G --> L[Inference cache]
+
+    G --> L[Inference Cache]
     H --> L
     E --> L
+
     L --> N[FastAPI /recommend]
-    N --> O[Metrics]
+    N --> O[Prometheus Metrics]
 ```
 
-## What is implemented
+### Deployment architecture
 
-- Chronological train/validation/test splitting.
-- User/movie activity filtering computed from the training period only.
-- Explicit-rating SVD for the serving model.
-- Most Popular and rating-popularity baselines.
-- ALS retained as an **implicit-feedback offline comparison**, not as an explicit-rating predictor.
-- Precision@K, Recall@K, NDCG@K, catalog coverage, and genre-based diversity.
-- RMSE/MAE kept separate from ranking metrics.
-- Deterministic negative sampling for top-N evaluation.
-- FastAPI recommendation inference offloaded to a threadpool so synchronous ML code does not block the event loop.
-- API-key authentication when configured, process-local rate limiting, and explicit CORS allowlisting.
-- Artifact metadata containing parameter/data hashes, dataset/model versions, project version, and Git commit when available.
-- CI linting, formatting, type checking, tests, and a reproducible model-quality regression gate.
-- Docker build and inference smoke-test workflow.
-- Lightweight concurrent load-test script.
-- Prometheus metrics for HTTP requests, latency, inference errors, recommendation counts, and model/data loading.
+The production-style application and the public demo are intentionally separated.
 
-## Evaluation methodology
+```text
+Production Application
+────────────────────────────────────────────
+
+FastAPI
+   ↓
+Recommendation Inference
+   ↓
+SVD + Popularity Ensemble
+   ↓
+Pretrained Artifacts
+   ↓
+Docker / Local Deployment
 
 
-### Rating prediction
+Hugging Face Demo
+────────────────────────────────────────────
 
-RMSE and MAE are measured on the chronological held-out test period. Models evaluated in this category are the global mean, rating-popularity baseline, SVD, and the SVD/popularity blend.
+Gradio
+   ↓
+HF Serving Adapter
+   ↓
+Pretrained SVD + Popularity Artifacts
+   ↓
+Hugging Face Spaces
+```
 
-Inactive/cold users and movies are filtered out of the validation and test sets before evaluation. Therefore, the reported RMSE and MAE represent **warm-start performance** and should not be interpreted as cold-start performance.
+This separation keeps the public deployment lightweight while preserving the more complete production-oriented application structure in the main repository.
 
-### Ranking
+---
 
-For ranking evaluation, a test interaction with `Rating >= 4` is treated as relevant. Candidates come only from the training catalog. Items already seen by the user in training and relevant test items are excluded from the sampled-negative pool, and deterministic sampled negatives are added. This means sampled negatives may include items the user rated poorly during the test period; this is a standard sampled-negative approximation rather than a strict "unseen items" evaluation. Metrics are averaged over users with at least one eligible relevant test item.
+# Recommendation System
 
-The **Most Popular** baseline ranks movies by training-period interaction count. Catalog coverage measures the fraction of the candidate catalog that appears in evaluated recommendation lists. Genre diversity is an average pairwise Jaccard-distance complement over recommendation genres.
+## 1. Collaborative Filtering — SVD
 
-This methodology does not use validation/test interactions to define the training catalog or activity filters.
+The primary recommendation model uses **Singular Value Decomposition (SVD)** for explicit-rating collaborative filtering.
 
-### Rating thresholds
+The model learns latent representations of users and movies from historical ratings and predicts user–movie preferences.
 
-The pipeline uses two different rating-count thresholds for different purposes:
+SVD is used for the primary recommendation path and is combined with a popularity-based signal during inference.
 
-- `MIN_RATINGS_COUNT=500` is the popularity-model qualification threshold. It determines which movies have enough training-period ratings to be considered qualified by the popularity baseline.
-- `min_movie_rating=50` is the catalog-activity threshold used during feature construction. It determines which movies have sufficient activity for inclusion in the constructed catalog/features.
+---
 
-These thresholds are intentionally different because they serve different pipeline stages and purposes.
+## 2. Popularity Baselines
 
-## ALS rationale
+Two popularity-based approaches are implemented:
 
-`implicit` ALS expects implicit preference strength rather than treating 1–5 ratings as direct regression targets. The implementation therefore converts training ratings into positive-confidence interactions and evaluates ALS only as an offline top-N ranking model. It is not part of the FastAPI serving path and no ALS RMSE/MAE claim is made.
+* **Most Popular** — ranks movies using training-period interaction counts.
+* **Rating Popularity** — incorporates rating information while applying the configured rating-count qualification threshold.
 
-## Reproducibility and versioning
+Popularity models serve two purposes:
 
-Model artifacts are accompanied by `*.metadata.json` files containing:
+1. Establish simple baselines for evaluation.
+2. Provide recommendations when collaborative-filtering information is unavailable, particularly for cold-start users.
 
-- project version
-- deterministic parameter hash
-- dataset hash/version
-- model version
-- Git commit when available
-- creation timestamp
-- artifact hash (lightweight integrity check)
+---
 
-Run:
+## 3. SVD + Popularity Ensemble
+
+The serving recommendation path combines:
+
+```text
+SVD predictions
+        +
+Rating-popularity signal
+        ↓
+Ensemble ranking
+        ↓
+Top-N recommendations
+```
+
+For known users, the system uses collaborative-filtering predictions together with popularity information.
+
+For cold-start users, the system falls back to popularity-based recommendations.
+
+Previously seen movies are excluded from the recommendation list.
+
+---
+
+## ALS: Offline Comparison
+
+`implicit` ALS is included as an **offline top-N ranking comparison**.
+
+ALS expects implicit preference/confidence signals rather than treating 1–5 ratings as direct regression targets. Therefore, the training ratings are converted into positive-confidence interactions for ALS.
+
+ALS is **not part of the serving path**.
+
+No ALS RMSE/MAE claim is made because the model is being used for implicit-feedback ranking rather than explicit-rating regression.
+
+---
+
+# Evaluation
+
+The evaluation framework separates **rating prediction** from **recommendation ranking**.
+
+This prevents metrics designed for different objectives from being mixed together.
+
+## Rating Prediction
+
+The following metrics are evaluated on the chronological held-out test period:
+
+* RMSE
+* MAE
+
+Models evaluated include:
+
+* Global mean
+* Rating-popularity baseline
+* SVD
+* SVD + popularity blend
+
+Inactive/cold users and movies are filtered from the validation and test sets before rating evaluation.
+
+Therefore, these RMSE/MAE measurements represent **warm-start performance**, not cold-start performance.
+
+---
+
+## Ranking Evaluation
+
+For top-N evaluation:
+
+```text
+Rating >= 4
+      ↓
+Relevant test interaction
+```
+
+The ranking evaluation measures:
+
+* Precision@K
+* Recall@K
+* NDCG@K
+* Catalog coverage
+* Genre-based diversity
+
+Candidates are taken from the training catalog.
+
+The evaluation excludes:
+
+* Movies already seen by the user during training
+* Relevant test items from the sampled-negative pool
+
+Deterministic sampled negatives are then added.
+
+Because sampled negatives may include movies that the user rated poorly during the test period, this is a **sampled-negative evaluation protocol**, not a strict unseen-item evaluation.
+
+Metrics are averaged across users with at least one eligible relevant test item.
+
+---
+
+## Catalog Coverage
+
+Catalog coverage measures the fraction of the candidate movie catalog that appears in evaluated recommendation lists.
+
+This provides a view of how broadly the recommendation system uses the available catalog rather than repeatedly recommending only a small set of popular movies.
+
+---
+
+## Genre Diversity
+
+Genre diversity is calculated using the pairwise Jaccard-distance complement over recommendation genres.
+
+This provides an additional view of recommendation variety beyond relevance metrics.
+
+---
+
+## Leakage Prevention
+
+The evaluation pipeline is designed to prevent future information from leaking into training-time decisions.
+
+In particular:
+
+* Data is split chronologically.
+* User/movie activity filtering is computed from the training period.
+* Training catalogs are derived from training data.
+* Validation/test interactions are not used to define training activity filters.
+* Negative sampling is deterministic.
+
+This makes the offline evaluation protocol reproducible and temporally consistent.
+
+---
+
+# Rating-Count Thresholds
+
+Two different thresholds are used for different pipeline stages.
+
+### `MIN_RATINGS_COUNT=500`
+
+Used by the popularity model to determine whether a movie has enough training-period ratings to qualify for the popularity baseline.
+
+### `min_movie_rating=50`
+
+Used during feature construction to determine whether a movie has sufficient activity for inclusion in the constructed catalog/features.
+
+These thresholds intentionally serve different purposes and are therefore not interchangeable.
+
+---
+
+# Production Engineering
+
+The project goes beyond model training and includes several production-oriented components.
+
+### Artifact Management
+
+Generated model artifacts are accompanied by `*.metadata.json` files containing information such as:
+
+* Project version
+* Deterministic parameter hash
+* Dataset hash/version
+* Model version
+* Git commit when available
+* Creation timestamp
+* Artifact integrity hash
+
+This makes it possible to trace an artifact back to its configuration and source data.
+
+### MLflow
+
+MLflow is used for experiment tracking.
+
+The local `mlruns/` directory acts as an experiment-tracking store and is **not presented as a production model registry**.
+
+### Inference Cache
+
+Frequently used recommendation data can be loaded into an inference cache to avoid repeatedly performing expensive preparation work.
+
+### FastAPI
+
+FastAPI exposes the recommendation system through an HTTP API.
+
+Synchronous ML inference is offloaded to a threadpool so it does not block the asynchronous API event loop.
+
+### Prometheus Metrics
+
+The application exposes metrics covering areas such as:
+
+* HTTP requests
+* Request latency
+* Inference errors
+* Recommendation counts
+* Model loading
+* Data loading
+
+### Security Controls
+
+The API supports:
+
+* Optional API-key authentication
+* Explicit CORS allowlisting
+* Process-local request rate limiting
+
+The default rate limit is:
+
+```text
+60 requests / 60 seconds
+```
+
+per process/client address.
+
+---
+
+# Hugging Face Deployment
+
+The project includes an isolated deployment layer for the public Hugging Face demo.
+
+
+The Hugging Face layer uses **pretrained artifacts only**.
+
+The public application does not retrain the model.
+
+The deployment adapter is isolated from the main production configuration so that the lightweight public application does not need to import the complete production runtime.
+
+### Cold-start behavior
+
+```text
+Known user
+   ↓
+SVD + Popularity Ensemble
+   ↓
+Top-N Recommendations
+
+
+Unknown user
+   ↓
+Popularity Baseline
+   ↓
+Top-N Recommendations
+```
+
+The deployed system excludes movies that the user has already seen when generating recommendations.
+
+---
+
+# Artifact Integrity & Security
+
+The model artifacts are stored as pickle files.
+
+Pickle files can execute arbitrary code when loaded, so artifacts must be treated as **trusted inputs**.
+
+The application therefore follows these principles:
+
+* Artifact loading is restricted to application-controlled paths.
+* Artifacts are validated against their metadata.
+* Integrity hashes help detect accidental corruption.
+* Artifact freshness is checked against the expected project/data configuration.
+
+The repository intentionally does **not** commit large raw datasets or trained model binaries.
+
+> **Important:** Never load pickle files obtained from an untrusted source.
+
+---
+
+# Dataset & Artifacts
+
+The complete dataset and required generated artifacts are distributed separately from the Git repository.
+
+**Dataset & Artifacts:**
+https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing
+
+Place downloaded files into the corresponding:
+
+```text
+data/
+artifacts/
+```
+
+directories.
+
+The repository intentionally excludes:
+
+* Large raw datasets
+* Generated datasets
+* Trained model binaries
+* MLflow runtime data
+
+---
+
+# Setup
+
+The primary tested Python range is:
+
+```text
+Python 3.10 – 3.14
+```
+
+The complete Netflix pipeline is memory-intensive. Approximately **16 GB RAM is a practical minimum** for working with the full dataset.
+
+## Installation
+
+```bash
+python -m venv .venv
+```
+
+### Linux / macOS
+
+```bash
+source .venv/bin/activate
+```
+
+### Windows
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+python -m pip install -e .
+```
+
+Create the environment file:
+
+```bash
+cp .env.example .env
+```
+
+Set:
+
+```text
+TMDB_API_KEY=your_api_key
+```
+
+only when genre enrichment requires TMDb access.
+
+---
+
+# Running the Pipeline
+
+The complete pipeline is divided into reproducible stages.
+
+### 1. Ingestion
+
+```bash
+make ingest
+```
+
+or:
+
+```bash
+python scripts/run_ingest.py
+```
+
+### 2. Genre enrichment
+
+```bash
+make enrich
+```
+
+or:
+
+```bash
+python scripts/run_enrich_genres.py
+```
+
+### 3. Feature construction / chronological split
+
+```bash
+make split
+```
+
+or:
+
+```bash
+python scripts/run_build_features.py
+```
+
+### 4. Model training
+
+```bash
+make train
+```
+
+or:
+
+```bash
+python scripts/run_train.py
+```
+
+### 5. Evaluation
+
+```bash
+make evaluate
+```
+
+or:
+
+```bash
+python scripts/run_evaluate.py
+```
+
+### 6. Quality gate
+
+```bash
+make quality-gate
+```
+
+or:
+
+```bash
+python scripts/run_quality_gate.py
+```
+
+### 7. Version information
 
 ```bash
 make version
 ```
 
-After generating data and training, the metadata files identify the exact input hashes and model configuration used to create each artifact. The local `mlruns/` directory is an experiment-tracking store; it is **not** presented as a production model registry.
-
-## Artifact integrity and security
-
-Model artifacts are stored as pickle files, which can execute arbitrary code when loaded. To ensure safety:
-
-- **Artifact trust boundary**: Model artifacts must be treated as trusted inputs
-- **Application-controlled paths**: Artifact loading only occurs from application-controlled directories (`artifacts/`)
-- **Integrity validation**: Artifact files include lightweight integrity hashes in their metadata to detect accidental corruption
-- **Freshness validation**: Artifact loading includes metadata validation to ensure compatibility with current code and data
-
-Download the required files from the following Google Drive folder:
-
-[Dataset & Artifacts — Google Drive](https://drive.google.com/drive/folders/1eldCFc5M0ElypZ9fU_jz4OpXD_-AQEUi?usp=sharing)
-
-After downloading, place the data files in data folder and artifact files in artifacts folder in root directory structure described below.
-
-> **Note:** The repository intentionally excludes large raw data and trained model artifacts from Git.
-**Important**: Never load pickle files from untrusted sources. The application's artifact loading functions (`get_or_train_*`) should be used instead of direct pickle loading to ensure proper validation.
-
-## Setup
-
-Python 3.10–3.14 is the primary tested range. The full Netflix pipeline is memory-intensive; 16 GB RAM is a practical minimum for working with the complete dataset.
+or:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install -r requirements-dev.txt
-python -m pip install -e .
-cp .env.example .env
+python scripts/run_version.py
 ```
 
-Set `TMDB_API_KEY` only when genre enrichment needs to query TMDb.
-
-## Pipeline
-
-```bash
-make ingest or python scripts/run_ingest.py
-make enrich or python scripts/run_enrich_genres.py
-make split or python scripts/run_build_features.py
-make train or python scripts/run_train.py
-make evaluate or python scripts/run_evaluate.py
-make quality-gate or python scripts/run_quality_gate.py
-make version or python scripts/run_version.py
-```
-
-Or:
+### Run the complete pipeline
 
 ```bash
 make all
 ```
 
-The raw Netflix files are not committed because of their size. The repository also does not commit generated datasets, model binaries, or MLflow runtime data.
+---
 
-## Serving
+# Serving
 
-Gradio remains available locally:
+## Gradio
+
+Run the local Gradio interface:
 
 ```bash
 make serve-gradio
 ```
 
-It does not create a public share URL by default.
+The local Gradio server does not create a public share URL by default.
 
-Local FastAPI:
+---
+
+## FastAPI
+
+Start the API:
 
 ```bash
-make serve-api or python src/serving/api.py
+make serve-api
 ```
 
-Then open `/docs` or call:
+or:
+
+```bash
+python src/serving/api.py
+```
+
+API documentation is available at:
+
+```text
+http://localhost:8000/docs
+```
+
+### Recommendation request
 
 ```bash
 curl -X POST http://localhost:8000/recommend \
-  -H 'Content-Type: application/json' \
+  -H "Content-Type: application/json" \
   -d '{"user_id":"2336536","top_n":5}'
 ```
 
-Set `API_KEY` in `.env` to require `X-API-Key` authentication. `CORS_ALLOW_ORIGINS` accepts a comma-separated allowlist. The default rate limit is 60 requests per 60 seconds per process/client address.
+### API authentication
 
-For local development the API key can remain unset. For multi-worker or distributed deployment, the process-local limiter should be replaced with shared infrastructure; that is deliberately outside this portfolio project's scope.
-
-
-
-
-
-## CI and quality gate
-
-CI runs:
+Set:
 
 ```text
-flake8 src scripts tests
-black --check --diff src scripts tests
-mypy src scripts --config-file mypy.ini
-pytest tests/ -v
-python scripts/run_quality_gate.py
-Docker build + smoke test
+API_KEY=your_key
 ```
 
-The quality gate trains the configured SVD on a small chronological fixture and checks that it improves on the same fixture's global-mean rating baseline by configured relative margins. This is a **regression contract for the implementation**, not a claim that the fixture represents Netflix-scale model quality.
+in `.env` to enable `X-API-Key` authentication.
 
-## Load testing
+CORS origins can be configured using:
 
-Start the API first, then run:
+```text
+CORS_ALLOW_ORIGINS
+```
+
+as a comma-separated allowlist.
+
+For local development, the API key may remain unset.
+
+> The current rate limiter and inference cache are process-local. Multi-worker or distributed deployment would require shared infrastructure.
+
+---
+
+# Docker
+
+The application can be built and run using Docker.
+
+```bash
+docker compose up --build
+```
+
+The CI pipeline also performs a Docker build and inference smoke test.
+
+---
+
+# CI & Quality Gates
+
+The repository uses automated CI checks covering:
+
+```text
+Flake8
+Black
+Mypy
+Pytest
+Model-quality regression gate
+Docker build
+Inference smoke test
+```
+
+The equivalent local checks are:
+
+```bash
+python -m black --check --diff src scripts tests
+
+python -m flake8 src scripts tests
+
+python -m mypy src scripts --config-file mypy.ini
+
+python -m pytest
+
+python scripts/run_quality_gate.py
+```
+
+The quality gate trains the configured SVD model on a small chronological fixture and verifies that it improves against the fixture's global-mean rating baseline according to configured relative margins.
+
+This is an **implementation regression contract**, not a claim that the fixture represents Netflix-scale model quality.
+
+---
+
+# Load Testing
+
+Start the API and run:
 
 ```bash
 python scripts/load_test.py \
@@ -210,26 +687,92 @@ python scripts/load_test.py \
   --user-id 2336536
 ```
 
-If API authentication is enabled, add `--api-key "$API_KEY"`.
+If authentication is enabled:
 
-The script reports request count, concurrency, throughput, success rate, mean latency, p50, p95, and p99. Benchmark numbers are intentionally not committed unless they were measured against a reproducible runtime.
+```bash
+python scripts/load_test.py \
+  --url http://localhost:8000/recommend \
+  --requests 100 \
+  --concurrency 10 \
+  --user-id 2336536 \
+  --api-key "$API_KEY"
+```
 
-## Repository layout
+The script reports:
+
+* Request count
+* Concurrency
+* Throughput
+* Success rate
+* Mean latency
+* p50 latency
+* p95 latency
+* p99 latency
+
+Benchmark numbers are intentionally not hard-coded into the README unless they are measured against a reproducible runtime.
+
+---
+
+# Reproducibility & Versioning
+
+Run:
+
+```bash
+make version
+```
+
+Generated artifacts contain metadata describing the configuration used to produce them.
+
+The metadata can include:
+
+```text
+Project version
+Parameter hash
+Dataset hash/version
+Model version
+Git commit
+Creation timestamp
+Artifact hash
+```
+
+This provides a traceable connection between:
+
+```text
+Data
+ ↓
+Configuration
+ ↓
+Training
+ ↓
+Artifact
+ ↓
+Serving
+```
+
+---
+
+# Repository Structure
 
 ```text
 .
-├── .github/workflows/ci.yml
-├── artifacts/                 # generated model artifacts, not committed
-├── data/                     # raw/processed data, not committed
-├── notebooks/
-├── scripts/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── artifacts/                  # generated model artifacts
+├── data/                       # raw / processed data
+├── notebooks/                  # exploration and analysis
+├── scripts/                    # pipeline and utility scripts
+│
 ├── src/
-│   ├── data/
-│   ├── evaluation/
-│   ├── inference/
-│   ├── models/
-│   └── serving/
-├── tests/
+│   ├── data/                   # ingestion and feature preparation
+│   ├── evaluation/             # rating and ranking evaluation
+│   ├── inference/              # recommendation inference
+│   ├── models/                 # SVD, popularity, ALS
+│   └── serving/                # FastAPI, monitoring, serving logic
+│
+├── tests/                      # automated tests
+│
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
@@ -238,8 +781,94 @@ The script reports request count, concurrency, throughput, success rate, mean la
 └── README.md
 ```
 
-## Limitations / future production considerations
+Generated data, model binaries, and runtime artifacts are intentionally excluded from Git.
 
-This is a portfolio-scale recommender system, not a claim of Netflix-scale production readiness. Known limitations include a static historical dataset, local artifact storage, process-local rate limiting, no distributed serving layer, and no production artifact registry. Those concerns are documented rather than hidden behind additional infrastructure.
+---
 
-The current serving model is also deliberately simple: SVD predictions are blended with rating-popularity and popularity is used for cold-start users. A production system would require a continuously refreshed interaction stream, retraining policy, online/offline monitoring, shared rate limiting, durable model storage, and deployment controls.
+# Limitations & Future Production Considerations
+
+This is a **portfolio-scale recommender system**, not a claim of Netflix-scale production readiness.
+
+Current limitations include:
+
+* Static historical dataset
+* Local artifact storage
+* Process-local inference cache
+* Process-local rate limiting
+* No distributed serving layer
+* No production artifact registry
+* No continuously refreshed interaction stream
+
+A larger production system would require additional infrastructure for:
+
+* Continuous interaction ingestion
+* Scheduled or triggered retraining
+* Online/offline model monitoring
+* Shared caching
+* Distributed rate limiting
+* Durable model storage
+* Deployment controls
+* Continuous data-quality monitoring
+
+The current system deliberately keeps those concerns outside the scope of this portfolio project while implementing the core engineering patterns needed to extend it.
+
+---
+
+# Technology Stack
+
+| Area                | Technologies                             |
+| ------------------- | ---------------------------------------- |
+| Language            | Python                                   |
+| Data Processing     | Pandas, NumPy                            |
+| Recommendation      | SVD, Popularity Models, ALS              |
+| Machine Learning    | scikit-learn / Surprise-based components |
+| Evaluation          | RMSE, MAE, Precision@K, Recall@K, NDCG@K |
+| Metadata            | TMDb                                     |
+| Experiment Tracking | MLflow                                   |
+| API                 | FastAPI                                  |
+| UI                  | Gradio                                   |
+| Monitoring          | Prometheus                               |
+| Containerization    | Docker                                   |
+| CI                  | GitHub Actions                           |
+| Deployment          | Hugging Face Spaces                      |
+| Data Format         | Parquet                                  |
+| Testing             | Pytest                                   |
+| Code Quality        | Black, Flake8, Mypy                      |
+
+---
+
+# Project Goals
+
+The project was built to demonstrate that a recommendation model can be taken beyond a notebook and turned into a reproducible ML system with:
+
+```text
+Raw Data
+   ↓
+Data Pipeline
+   ↓
+Feature Engineering
+   ↓
+Model Training
+   ↓
+Offline Evaluation
+   ↓
+Artifact Versioning
+   ↓
+Automated Testing
+   ↓
+Docker
+   ↓
+FastAPI
+   ↓
+Monitoring
+   ↓
+Public Deployment
+```
+
+The emphasis is on **ML engineering, reproducibility, evaluation correctness, and serving**, rather than simply training a recommender model.
+
+---
+
+## License
+
+See the repository license for usage and distribution terms.
