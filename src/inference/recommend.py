@@ -106,6 +106,7 @@ def _load_artifacts():
             logger.exception("Failed to initialize inference cache")
             raise
 
+
 def _load_ensemble_weights():
     """
     Load pre-optimized ensemble weights lazily.
