@@ -50,28 +50,18 @@ def _load_artifacts():
             cache["movies_df"] = pd.read_csv(ENRICHED_MOVIES_PATH)
             observe_metric(DATA_LOAD_STATUS.labels(data_type="movies").set, 1)
 
-            cache["known_users"] = set(
-                cache["train_df"]["CustomerID"].unique()
-            )
+            cache["known_users"] = set(cache["train_df"]["CustomerID"].unique())
 
             cache["user_seen_movies"] = (
-                cache["train_df"]
-                .groupby("CustomerID")["Movie_ID"]
-                .agg(set)
-                .to_dict()
+                cache["train_df"].groupby("CustomerID")["Movie_ID"].agg(set).to_dict()
             )
 
             movies_exp = cache["movies_df"].copy()
-            movies_exp["Genre"] = (
-                movies_exp["Genre"]
-                .astype(str)
-                .str.split(", ")
-            )
+            movies_exp["Genre"] = movies_exp["Genre"].astype(str).str.split(", ")
             movies_exp = movies_exp.explode("Genre")
 
             cache["movies_exp"] = movies_exp[
-                movies_exp["Genre"].notna()
-                & (movies_exp["Genre"] != "Unknown")
+                movies_exp["Genre"].notna() & (movies_exp["Genre"] != "Unknown")
             ]
 
             cache["popularity_artifact"] = get_or_train_popularity()
