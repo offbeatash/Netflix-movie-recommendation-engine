@@ -6,8 +6,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.models.svd_model import predict_batch
-
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +26,112 @@ MOVIES_PATH = DATA_DIR / "movies_with_genres.csv"
 # Lazy deployment cache
 
 _CACHE = {}
+
+
+def _predict_batch(svd_model, user_id, movie_ids):
+    """
+    Predict ratings for one user across many movies using NumPy.
+
+    This is the deployment-local version of the production
+    predict_batch() implementation. It avoids importing the
+    production SVD module and therefore keeps the Hugging Face
+    deployment isolated from training/configuration code.
+    """
+
+    trainset = svd_model.trainset
+
+    movie_ids = np.asarray(movie_ids)
+
+    if movie_ids.size == 0:
+        return np.empty(0, dtype=float)
+
+    required_attributes = (
+        "pu",
+        "qi",
+        "bu",
+        "bi",
+        "trainset",
+    )
+
+    if not all(hasattr(svd_model, attr) for attr in required_attributes):
+        return np.asarray(
+            [
+                svd_model.predict(
+                    str(user_id),
+                    str(movie_id),
+                ).est
+                for movie_id in movie_ids
+            ],
+            dtype=float,
+        )
+
+    raw_user_id = str(user_id)
+
+    try:
+        inner_uid = trainset.to_inner_uid(raw_user_id)
+
+    except ValueError:
+        global_mean = float(trainset.global_mean)
+
+        return np.full(
+            movie_ids.size,
+            global_mean,
+            dtype=float,
+        )
+
+    global_mean = float(trainset.global_mean)
+
+    user_bias = float(svd_model.bu[inner_uid])
+
+    user_factors = np.asarray(
+        svd_model.pu[inner_uid],
+        dtype=np.float64,
+    )
+
+    inner_item_id_list = []
+
+    for movie_id in movie_ids:
+        try:
+            inner_item_id_list.append(trainset.to_inner_iid(str(movie_id)))
+
+        except ValueError:
+            inner_item_id_list.append(-1)
+
+    inner_item_ids = np.asarray(
+        inner_item_id_list,
+        dtype=np.int64,
+    )
+
+    known_mask = inner_item_ids >= 0
+
+    predictions = np.full(
+        movie_ids.size,
+        global_mean + user_bias,
+        dtype=np.float64,
+    )
+
+    if known_mask.any():
+        known_item_ids = inner_item_ids[known_mask]
+
+        item_biases = np.asarray(
+            svd_model.bi[known_item_ids],
+            dtype=np.float64,
+        )
+
+        item_factors = np.asarray(
+            svd_model.qi[known_item_ids],
+            dtype=np.float64,
+        )
+
+        dot_products = item_factors @ user_factors
+
+        predictions[known_mask] = global_mean + user_bias + item_biases + dot_products
+
+    return np.clip(
+        predictions,
+        1.0,
+        5.0,
+    )
 
 
 def _load_cache():
@@ -215,7 +319,7 @@ def generate_genre_recommendations(user_id, top_n=10):
     unseen_exp = movies_exp[~movies_exp["Movie_ID"].isin(seen_movies)].copy()
 
     # SVD prediction.
-    unseen_exp["svd_rating"] = predict_batch(
+    unseen_exp["svd_rating"] = _predict_batch(
         svd_model=svd_model,
         user_id=user_id,
         movie_ids=unseen_exp["Movie_ID"].to_numpy(),

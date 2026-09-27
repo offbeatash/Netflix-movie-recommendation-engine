@@ -3,5 +3,5 @@ pandas==2.3.3
 scipy==1.16.3
 scikit-learn==1.7.2
 scikit-surprise==1.1.5
-gradio==6.26.0
+gradio==6.28.0
 huggingface_hub==1.31.0

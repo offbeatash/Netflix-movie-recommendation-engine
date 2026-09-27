@@ -4,6 +4,7 @@ from typing import Any
 
 import gradio as gr
 import pandas as pd
+import spaces
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -12,6 +13,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 from src.inference.hf_recommend import generate_genre_recommendations
+
+
+@spaces.GPU(duration=1)
+def _zerogpu_startup_probe():
+    """Unused function required for ZeroGPU startup compatibility."""
+    return None
 
 
 # Real Customer IDs from the Netflix Prize training dataset.
