@@ -30,42 +30,81 @@ def _load_artifacts():
     """Load models and serving data exactly once, safely under concurrency."""
     if _CACHE:
         return _CACHE
+
     with _CACHE_LOCK:
         if _CACHE:
             return _CACHE
+
         start = time.perf_counter()
         logger.info("Initializing inference cache")
+
         try:
-            _CACHE["train_df"] = pd.read_parquet(
-                TRAIN_DATA_PATH, columns=["CustomerID", "Movie_ID"]
+            cache: dict[str, Any] = {}
+
+            cache["train_df"] = pd.read_parquet(
+                TRAIN_DATA_PATH,
+                columns=["CustomerID", "Movie_ID"],
             )
             observe_metric(DATA_LOAD_STATUS.labels(data_type="train").set, 1)
-            _CACHE["movies_df"] = pd.read_csv(ENRICHED_MOVIES_PATH)
+
+            cache["movies_df"] = pd.read_csv(ENRICHED_MOVIES_PATH)
             observe_metric(DATA_LOAD_STATUS.labels(data_type="movies").set, 1)
-            _CACHE["known_users"] = set(_CACHE["train_df"]["CustomerID"].unique())
-            _CACHE["user_seen_movies"] = (
-                _CACHE["train_df"].groupby("CustomerID")["Movie_ID"].agg(set).to_dict()
+
+            cache["known_users"] = set(
+                cache["train_df"]["CustomerID"].unique()
             )
-            movies_exp = _CACHE["movies_df"].copy()
-            movies_exp["Genre"] = movies_exp["Genre"].astype(str).str.split(", ")
+
+            cache["user_seen_movies"] = (
+                cache["train_df"]
+                .groupby("CustomerID")["Movie_ID"]
+                .agg(set)
+                .to_dict()
+            )
+
+            movies_exp = cache["movies_df"].copy()
+            movies_exp["Genre"] = (
+                movies_exp["Genre"]
+                .astype(str)
+                .str.split(", ")
+            )
             movies_exp = movies_exp.explode("Genre")
-            _CACHE["movies_exp"] = movies_exp[
-                movies_exp["Genre"].notna() & (movies_exp["Genre"] != "Unknown")
+
+            cache["movies_exp"] = movies_exp[
+                movies_exp["Genre"].notna()
+                & (movies_exp["Genre"] != "Unknown")
             ]
-            _CACHE["popularity_artifact"] = get_or_train_popularity()
-            observe_metric(MODEL_LOAD_STATUS.labels(model_type="popularity").set, 1)
-            _CACHE["svd_model"] = get_or_train_svd()
-            observe_metric(MODEL_LOAD_STATUS.labels(model_type="svd").set, 1)
+
+            cache["popularity_artifact"] = get_or_train_popularity()
             observe_metric(
-                MODEL_CACHE_INITIALIZATION_SECONDS.set, time.perf_counter() - start
+                MODEL_LOAD_STATUS.labels(model_type="popularity").set,
+                1,
             )
+
+            cache["svd_model"] = get_or_train_svd()
+            observe_metric(
+                MODEL_LOAD_STATUS.labels(model_type="svd").set,
+                1,
+            )
+
+            _CACHE.update(cache)
+
+            observe_metric(
+                MODEL_CACHE_INITIALIZATION_SECONDS.set,
+                time.perf_counter() - start,
+            )
+
             logger.info("Inference cache initialized")
             return _CACHE
+
         except Exception:
             for name in ("train", "movies"):
-                observe_metric(DATA_LOAD_STATUS.labels(data_type=name).set, 0)
-            raise
+                observe_metric(
+                    DATA_LOAD_STATUS.labels(data_type=name).set,
+                    0,
+                )
 
+            logger.exception("Failed to initialize inference cache")
+            raise
 
 def _load_ensemble_weights():
     """
