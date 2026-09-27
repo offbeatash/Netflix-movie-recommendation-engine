@@ -25,7 +25,7 @@ MOVIES_PATH = DATA_DIR / "movies_with_genres.csv"
 
 # Lazy deployment cache
 
-_CACHE = {}
+_CACHE: dict[str, object] = {}
 
 
 def _predict_batch(svd_model, user_id, movie_ids):
